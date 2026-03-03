@@ -1,17 +1,61 @@
 const MAX_PLAYERS = 24;
 const MAX_ZOMBIES = 4;
+const MIN_UNION_REPS = 2;
+const MAX_UNION_REPS = 3;
 const ENGLISH_LANG_RE = /^en(?:-|_|$)/i;
 const PREFERRED_ENGLISH_LANGS = ["en-AU", "en-GB", "en-US"];
 const ACCESS_CODE = "runaway";
 const ACCESS_SESSION_KEY = "zombie-leaders-unlocked";
-const DEFAULT_AMBIENCE_ID = "haunted-wind";
+const DEFAULT_AMBIENCE_ID = "mozart-requiem";
+const SCRIPT_VOICE_VOLUME = 1;
+const BACKGROUND_AUDIO_VOLUME_RATIO = 0.5;
+const SCRIPT_PAUSE_MARKER = "__SCRIPT_PAUSE__";
+const SCRIPT_PAUSE_2S_MARKER = "__SCRIPT_PAUSE_2S__";
+const SCRIPT_TYPES = ["orientation", "intro", "day", "night"];
+const SCRIPT_LABELS = Object.freeze({
+  orientation: "Orientation",
+  intro: "Introduction",
+  day: "Day Sequence",
+  night: "Night Sequence",
+});
+const FEATURED_VOICE_OPTIONS = Object.freeze([
+  {
+    id: "daniel",
+    name: "Daniel",
+    matcher: /\bdaniel\b/i,
+    image: "01_thumbnail icons/Departmental Administrator M30.png",
+  },
+  {
+    id: "samantha",
+    name: "Samantha",
+    matcher: /\bsamantha\b/i,
+    image: "01_thumbnail icons/Departmental Administrator F30.png",
+  },
+  {
+    id: "moira",
+    name: "Moira",
+    matcher: /\bmoira\b/i,
+    image: "01_thumbnail icons/Departmental Administrator F60.png",
+  },
+]);
 const AMBIENT_PRESETS = [
-  { id: "haunted-wind", name: "Haunted Wind (Default)", engine: "wind", gain: 0.24, color: 260 },
-  { id: "cold-wind", name: "Cold Wind", engine: "wind", gain: 0.2, color: 340 },
-  { id: "gale-force", name: "Gale Force", engine: "wind", gain: 0.3, color: 210 },
+  {
+    id: "mozart-requiem",
+    name: "Mozart - Requiem",
+    engine: "recording",
+    gain: 0.58,
+    audioSrc: "assets/audio/mozart-requiem-lacrimosa.ogg",
+  },
+  {
+    id: "moonlight-sonata",
+    name: "Beethoven - Moonlight Sonata",
+    engine: "recording",
+    gain: 0.55,
+    audioSrc: "assets/audio/moonlight-sonata.ogg",
+  },
   {
     id: "graveyard-drizzle",
-    name: "Graveyard Drizzle",
+    name: "Graveyard Drizzle (Default)",
     engine: "rain",
     gain: 0.18,
     thunder: 0.08,
@@ -21,33 +65,8 @@ const AMBIENT_PRESETS = [
     rainBedGain: 0.12,
     rainTone: 2200,
   },
-  {
-    id: "storm-rain",
-    name: "Storm Rain",
-    engine: "rain",
-    gain: 0.26,
-    thunder: 0.68,
-    rainMin: 40,
-    rainMax: 120,
-    dropStrength: 0.05,
-    rainBedGain: 0.26,
-    rainTone: 1450,
-  },
-  { id: "cave-drips", name: "Cave Drips", engine: "drips", gain: 0.2 },
-  { id: "dark-drone", name: "Dark Drone", engine: "drone", freqs: [56, 83], gain: 0.2 },
-  { id: "subbass-drone", name: "Sub-bass Drone", engine: "drone", freqs: [41, 62], gain: 0.24 },
   { id: "warning-pulse", name: "Warning Pulse", engine: "pulse", bpm: 62, gain: 0.24 },
-  { id: "ritual-bells", name: "Ritual Bells", engine: "bells", gain: 0.2 },
-  { id: "minor-melody", name: "Minor Melody", engine: "melody", tempo: 82, gain: 0.21 },
-  { id: "dramatic-melody", name: "Dramatic Melody", engine: "melody", tempo: 96, gain: 0.24, dramatic: true },
-  { id: "organ-dirge", name: "Organ Dirge", engine: "organ", gain: 0.2 },
-  { id: "siren-distant", name: "Distant Siren", engine: "siren", gain: 0.2 },
-  { id: "whisper-chorus", name: "Whisper Chorus", engine: "whispers", gain: 0.2 },
-  { id: "radio-static", name: "Radio Static", engine: "static", gain: 0.2 },
-  { id: "factory-hum", name: "Factory Hum", engine: "industrial", mode: "hum", gain: 0.21 },
-  { id: "metal-scrape", name: "Metal Scrape", engine: "industrial", mode: "scrape", gain: 0.23 },
-  { id: "distant-footsteps", name: "Distant Footsteps", engine: "footsteps", gain: 0.2 },
-  { id: "zombie-moan", name: "Zombie Moan", engine: "zombie", gain: 0.24 },
+  { id: "amplified-heartbeat", name: "Amplified Heartbeat", engine: "heartbeat", bpm: 70, gain: 0.46 },
 ];
 
 const BASE_CITIZEN_ROLE = {
@@ -80,7 +99,7 @@ const CITIZEN_ROLES = [
   {
     id: "union-rep",
     name: "Union Rep",
-    count: 2,
+    count: MIN_UNION_REPS,
     summary: "You work secretly with the other Reps to fight Zombie Leadership. But if you reveal your identity you will be instantly dismissed.",
   },
   {
@@ -213,31 +232,53 @@ const ROLE_ICON_META = Object.freeze({
 
 const SCRIPT_TEXT = {
   orientation: [
-    "Welcome to Happy Days Corporation (HDC) — an organization where we like to put the smile on everyone’s faces and keep it there. I’m the Departmental Administrator and my goal is to make your time here as fulfilling and rewarding as possible. Unfortunately, though, as you are about find out, there are some very extreme structural constraints that limit my ability to do this. Historically, as our name suggests, we have been a very happy organization. Our leaders worked hard to create, advance, represent and embed a shared sense of “us” and — in line with what we know from research — this was a place where people enjoyed their work and were both healthy and productive. Unfortunately, though, HDC has recently been going through a tough time. Things started going downhill after some of our senior executives went on a shonky Leadership Development course last year. This led to them being infected with a toxic mindset that researchers have identified as arising from an approach to management known as Zombie Leadership.",
-    "Devotees of Zombie Leadership — Zombie Leaders — are committed to the idea that leaders are inherently superior to everyone else and hence that they are “born to lead”. They think that everything they do is right, that they alone know how best to do things, that everyone can see how wonderful they are, and that they should be extravagantly rewarded for the work they do. Sadly, HDC now has a number of Zombie Leaders in its top ranks. Precisely how many there are of them is unknown — but they are in the process of destroying our organization. [There is also potentially a Sycophant who is aligned with the Zombie Leaders, but who they don’t know about.] If the Zombie Leaders destroy the organization, they will have won [and the Sycophant will win too]. The good news is, there are still plenty of decent, sensible people working here. ….",
-    "We have a great Integrity Officer, who can view one person's CV each morning to see if they are a Zombie Leader. We also have a great Personnel Manager who can identify one person every day that they will protect from attack by the Zombie Leaders (but note that they must choose a different person every day). We have a very cluey IT Specialist who can hack the IT system twice in the course of the game — once to get rid of someone they suspect of being a Zombie Leader; once to save someone they want to protect from the Zombie Leaders. We have a Matchmaker who is keen to cultivate office romance and who is going to weave their magic to make two members of HDC fall in love. This, though, means that if one of these two Lovers leaves the organization (for whatever reason) the other will too. ….",
-    "Defending everyone’s rights, we also have some Union Reps. They will be known to each other and will act in solidarity to defend us from the Zombie Leaders. However, because the Zombie Leaders are very vindictive, if the Union Reps ever reveal — or even hint at —their identity they will be instantly dismissed. And if anyone else hints at the Union Reps’ identity they too will be fired. We also have a very enthusiastic Training Supervisor. They take their job seriously and every day will be send one person off to complete mandatory training. There are a range of courses that people will be completing — covering everything from Managing Conflicts of Interest and Respectful Relationships in the Workplace to Fire Safety. These courses were mandated by the Zombie Leaders, but, as you’ll discover, they don’t pay much attention to them themselves. There is also one member of HDC who is the Schoßhündchen (the Boss’s Pet). They are protected by one of the non-zombie senior managers, and this means that they will not lose their position the first time that the Zombie Leaders target them. Happily, we also have an Intern. Every day they can, if they want, decide to spend time with a Mentor of their choosing. This means that if they are targeted by the Zombie Leaders that night, they won’t be terminated. However, if their mentor is terminated, the intern will be terminated along with them. We also have a very enthusiastic Office Gossip. They have the dirt on everybody and if they are targeted by the Zombie Leaders they will not necessarily go quietly — and can take someone down with them in retaliation if they so desire. In light of the increasing job demands that the Zombie Leaders are placing on us, we are also lucky to have a Social Club Organizer. In a round of their choosing they can set up a social club for themselves and up to three other people in HDC. Due to the well-evidenced socially curative effects of group memberships, this protects them all from being harmed by the Zombie Leaders in that round.",
-    "Finally, we have a number of Organizational Citizens. They are the backbone of HDC and they have been serving the company loyally for a great many years. We are grateful for their service but mindful that the Zombie Leaders are always looking for ways to reduce their ranks — while at the same time taking credit for everything they achieve. The big question, then, is whether we can save ourselves from the impending Zombie Leadership Apocalypse. Let us not go quietly into that dark night.",
+    "Welcome to Happy Days Corporation (HDC) — an organization where we like to put the smile on everyone’s faces and keep it there. I’m the Departmental Administrator and my goal is to make your time here as fulfilling and rewarding as possible. Unfortunately, as you are about to find out, there are some extreme structural constraints that limit my ability to do this. Historically, as our name suggests, we have been a very happy organization. Our leaders worked hard to create, advance, represent and embed a sense of shared identity among employees. As a result, this was a place where people enjoyed their work and were both healthy and productive. But HDC has recently been going through a tough time. Things started going downhill after some of our senior executives went on a shonky Leadership Development course last year. This led to them being infected with a toxic mindset that researchers have identified as arising from an approach to management known as ZOMBIE LEADERSHIP.",
+    "Devotees of Zombie Leadership — known as Zombie Leaders — are committed to the idea that leaders are inherently superior to everyone else and hence that they are natural leaders. They think that everything they do is right, that they alone know how best to do things, that everyone can see how wonderful they are, and that they should be extravagantly rewarded for the work they do. Sadly, HDC now has a number of Zombie Leaders in its top ranks. Precisely how many there are of them is unknown — but they are in the process of destroying our organization. If the Zombie Leaders destroy the organization, they will have won.",
+    "But the good news is, there are still plenty of decent, sensible people working here.",
+    "Finally, we have a number of Organizational Citizens. They are the backbone of HDC and they have been serving the company loyally for a great many years. We are grateful for their service but mindful that the Zombie Leaders are always looking for ways to reduce their ranks — while at the same time taking credit for everything they achieve.",
+    "The big question, then, is whether we can save ourselves from the impending Zombie Leadership Apocalypse. Let us not go quietly into that dark night.",
   ],
   intro: [
-    "The first thing I’d like to do is work out what role everyone has, because, after the last restructure that the Zombie Leaders initiated, everyone — including me — is a lot confused. And because some of this information is secret, I’d also like everyone to close your eyes. First, I’d like the Zombie Leaders to open your eyes and acknowledge each other. You are dirtbags and proud of it. Now please close your eyes [and raise one hand. Could the Sycophant also please open your eyes and look at me and take note of the Zombie Leaders with their hands raised. Now please close your eyes and do your worst]. Now could the Integrity Officer open your eyes and look at me please. Thank you and good luck. Please close your eyes. Now could the Personnel Manager please open your eyes and look at me. Thank you and good luck. Please close your eyes.",
-    "Now IT Specialist open your eyes and look at me please. Thank you and good luck. Please close your eyes. Now could the Training Supervisor open your eyes and look at me please. Thank you and good luck. Please close your eyes. Now could the Schoßhündchen (Boss’s Pet) open your eyes and look at me please. Thank you and good luck. Please close your eyes. Now could the Social Club Organiser open your eyes and look at me please. Thank you and good luck. Please close your eyes. Now could the Office Gossip open your eyes and look at me please. Thank you and good luck. Please close your eyes. Now could the Intern open your eyes and look at me please. Thank you and good luck. Please close your eyes. ….",
-    "Now could the Matchmaker open your eyes and look at me. Can you point to two people who you would like to fall in love with each other? [Pause] Thank you — you can close your eyes. Now if I tap you on the knee, please open your eyes and gaze upon your new life partner. Your fates will now be inextricably intertwined — so if one of you leaves us, the other will too. [Pause] Now please close your eyes and commit yourselves to a future in which you are bound together in perpetuity. Now could the Union Reps open your eyes and identify each other. You have a difficult job ahead of you and you will need to work as a united force. Your strength lies in your solidarity and your unwavering commitment to the AntiZombie Leadership Alliance. Remember, you are fighting for fairness, for dignity, and for a better future — but you can never speak of this endeavour. Thank you. And now please close your eyes. Finally, could the Organizational Citizens please keep your eyes closed and raise your hands so that I can see who you are? Thank you. We are now ready to get to work. This is a new day at Happy Days Corporation and the first thing I’d like you to do is elect a Head of Department. This person is going to be in charge of your meetings and they will also have the deciding vote if any votes are tied — so choose wisely.",
+    "The first thing I’d like to do is work out what role everyone has, because, after the last restructure that the Zombie Leaders initiated everyone — including me — is very confused. And because some of this information is secret, I’d also like everyone to close your eyes. First, I’d like the Zombie Leaders to open your eyes and acknowledge each other.",
+    "You are dirtbags and proud of it.",
+    "Now please close your eyes.",
+    "Now could the Sycophant please open your eyes and look at me. Now Zombie Leaders please keep your eyes closed but just raise your hands.",
+    "Sycophant, take note of the Zombie Leaders with their hands raised. Now Zombie Leaders please put your hands down. Sycophant please close your eyes and do your worst.",
+    "Now could the Integrity Officer open your eyes and look at me please. Thank you and good luck. Please close your eyes.",
+    "Now could the Personnel Manager please open your eyes and look at me. Thank you and good luck. Please close your eyes.",
+    "Now IT Specialist open your eyes and look at me please. Thank you and good luck. Please close your eyes.",
+    "Now could the Training Supervisor open your eyes and look at me please. Thank you and good luck. Please close your eyes.",
+    "Now could the Schoßhündchen (Boss’s Pet) open your eyes and look at me please. Thank you and good luck. Please close your eyes.",
+    "Now could the Social Club Organiser open your eyes and look at me please. Thank you and good luck. Please close your eyes.",
+    "Now could the Office Gossip open your eyes and look at me please. Thank you and good luck. Please close your eyes.",
+    "Now could the Matchmaker open your eyes and look at me. Can you point to two people who you would like to fall in love with each other?",
+    "Thank you — you can close your eyes. Now if I tap you on the knee, please open your eyes and gaze upon your new life partner. Your fates will now be inextricably intertwined — so if one of you leaves us, the other will too.",
+    "Now please close your eyes and commit yourselves to a future in which you are bound together in perpetuity.",
+    "Now could the Union Reps open your eyes and identify each other. You have a difficult job ahead of you and you will need to work as a united force. Your strength lies in your solidarity and your unwavering commitment to the AntiZombie Leadership Alliance. Remember, you are fighting for fairness, for dignity, and for a better future — but you can never speak of this endeavour. Thank you. And now please close your eyes.",
+    "Finally, could the Organizational Citizens please keep your eyes closed and raise your hands so that I can see who you are?",
+    "Thank you.",
+    "We are now ready to get to work.",
+    "This is a new day at Happy Days Corporation and the first thing I’d like you to do is elect a Head of Department. This person is going to be in charge of your meetings and they will also have the deciding vote if any votes are tied. So, as always, you need to choose this leader wisely.",
   ],
   day: [
-    "We would like you to have a discussion to see if there is anyone you would like to remove from the organization because you suspect them of being a Zombie Leader. You can also choose not to remove anyone, but that decision must be unanimous. [Pause for discussion: setting alarm time] Now I know it’s been a long day and that everyone is very tired, but before you go home, we need to make plans for tomorrow. I’d also like you to close your eyes so that we can do this in private. Integrity Officer please open your eyes and tell me whose CV you would like to take home to have a look at? [Pause] Thank you. Please close your eyes. Personnel Manager please open your eyes and indicate whose career you would like to save from attack by Zombie Leaders tonight. [Pause] Thank you. Please close your eyes. Now IT Specialist please open your eyes and let me know if you would like to use your one chance to save the person who is going to be targeted by the ZLs tonight? Do you want to use your one chance to get rid of someone? [Pause] Thank you. Now please close your eyes.",
+    "We would like you to have a discussion to see if there is anyone you would like to remove from the organization because you suspect them of being a Zombie Leader. You can also choose not to remove anyone, but that decision must be unanimous. This will be the last thing we do today before we go to bed.",
   ],
   night: [
     "The day has faded into night.",
-    "Now could the Training Supervisor open your eyes and let me know who you would like to send on mandatory training tomorrow. Tomorrow’s course promises to be very exciting and is on [Pause] Thank you. Please close your eyes.",
-    "Now could the Social Club Organiser open your eyes and let me know if you want to use your one chance to go on a 24-hour excursion and, if so, who you would like to take with you. [Pause] Thank you. Please close your eyes.",
-    "Now could the Office Gossip please open your eyes and look at me. If your career is destroyed by the Zombie Leaders tonight, is there anyone you would like to take down with you? [Pause] Thank you. Please close your eyes.",
-    "Now, finally, could the Intern open your eyes and let me know who, if anyone, you would like to have as your mentor for the next 24 hours. [Pause] Thank you. Please close your eyes.",
-    "Thank you everyone for your work today. It’s now time for everyone to go home and get a good night’s rest, as it’s going to be another busy day tomorrow.",
-    "Everyone closes their eyes except the Zombie Leaders, who now convene to identify someone whose position in HDC they are going to terminate (typically, the person who they perceive to be the greatest threat to them, or else to throw the Organizational Citizens off their scent).",
-    "They need to do this using non-verbal communication, so as not to be identifiable.",
-    "Depending on the environment in which the game takes place, it may be necessary to play music to mask any sound that the Zombie Leaders make.",
-    "Once the Zombie Leaders have decided who they want to eliminate, the new day starts with the Departmental Administrator announcing the implications of the Zombie Leaders’ decision.",
+    "Could the Training Supervisor open your eyes and let me know who you would like to send on mandatory training tomorrow. Tomorrow’s course promises to be very exciting and is on",
+    "Thank you. Please close your eyes.",
+    "Now could the Social Club Organiser open your eyes and let me know if you want to use your one chance to go on a 24-hour excursion and, if so, who you would like to take with you.",
+    "Thank you. Please close your eyes.",
+    "Now could the Office Gossip please open your eyes and look at me. If your career is destroyed by the Zombie Leaders tonight, is there anyone you would like to take down with you?",
+    "Thank you. Please close your eyes.",
+    "Now, finally, could the Intern open your eyes and let me know who, if anyone, you would like to have as your mentor for the next 24 hours.",
+    "Thank you. Please close your eyes.",
+    "Thank you everyone for your work today. It’s now time for everyone to get a good night’s rest, as it’s going to be another busy day tomorrow.",
+    "So please close your eyes.",
+    "It’s now time for the Zombie Leaders to get to work.",
+    "Zombie Leaders, open your eyes. Your task is to identify one person whose position in HDC you will terminate (typically someone you see as the greatest threat, or to throw the Organizational Citizens off your scent). Please remain silent and use only non-verbal communication to agree on your next victim. Once you have reached an agreement, silently point to the person you wish to remove from the organization.",
+    "Thank you. Please close your eyes.",
+    "Now everyone, enjoy the rest of the night.",
   ],
 };
 
@@ -249,7 +290,6 @@ const dom = {
   playerCount: document.getElementById("player-count"),
   playerNames: document.getElementById("player-names"),
   zombieCount: document.getElementById("zombie-count"),
-  nightDuration: document.getElementById("night-duration"),
   rolesGrid: document.getElementById("roles-grid"),
   roleIconLegend: document.getElementById("role-icon-legend"),
   selectAllRoles: document.getElementById("select-all-roles"),
@@ -261,28 +301,22 @@ const dom = {
   revealAllCards: document.getElementById("reveal-all-cards"),
   hideAllCards: document.getElementById("hide-all-cards"),
   orientationEnabled: document.getElementById("orientation-enabled"),
-  playOrientation: document.getElementById("play-orientation"),
-  playIntro: document.getElementById("play-intro"),
-  playDay: document.getElementById("play-day"),
-  playNightScript: document.getElementById("play-night-script"),
-  stopSpeech: document.getElementById("stop-speech"),
   startNight: document.getElementById("start-night"),
-  stopNight: document.getElementById("stop-night"),
+  pauseNight: document.getElementById("pause-night"),
   ambienceSelect: document.getElementById("ambience-select"),
+  backgroundAudioProgress: document.getElementById("background-audio-progress"),
+  backgroundAudioProgressMeta: document.getElementById("background-audio-progress-meta"),
   voiceRate: document.getElementById("voice-rate"),
   voiceRateValue: document.getElementById("voice-rate-value"),
-  voicePitch: document.getElementById("voice-pitch"),
-  voicePitchValue: document.getElementById("voice-pitch-value"),
-  voiceMode: document.getElementById("voice-mode"),
-  voiceSelect: document.getElementById("voice-select"),
+  voiceChoices: document.getElementById("voice-choices"),
   testVoice: document.getElementById("test-voice"),
-  resetVoice: document.getElementById("reset-voice"),
   audioStatus: document.getElementById("audio-status"),
   orientationScript: document.getElementById("orientation-script"),
   introScript: document.getElementById("intro-script"),
   dayScript: document.getElementById("day-script"),
   nightScript: document.getElementById("night-script"),
 };
+dom.scriptPanels = buildScriptPanelDom();
 
 const state = {
   assignments: [],
@@ -290,18 +324,27 @@ const state = {
   scripts: { orientation: [], intro: [], day: [], night: [] },
   voices: [],
   voiceMap: new Map(),
+  selectedVoiceId: "daniel",
   nightAudio: null,
   speechSessionId: 0,
+  unionRepCount: MIN_UNION_REPS,
+  scriptPlayback: null,
+  scriptPendingResume: null,
+  completedScriptPlayback: null,
+  scriptScrub: null,
 };
 
 function init() {
   renderRolePicker();
   renderAmbienceOptions();
   bindEvents();
+  updateNightAudioButton();
+  syncNightAudioUI();
   updateVoiceControlReadouts();
   populateVoiceList();
   state.scripts = buildFallbackScripts();
   updateScriptViews();
+  syncScriptPlaybackUI();
   setupAccessGate();
   setSetupStatus("Add players and click Generate Game.");
 }
@@ -313,24 +356,57 @@ function bindEvents() {
   dom.generateGame.addEventListener("click", handleGenerateGame);
   dom.revealAllCards.addEventListener("click", revealAllCards);
   dom.hideAllCards.addEventListener("click", hideAllCards);
-  dom.playOrientation.addEventListener("click", () => playScript("orientation"));
-  dom.playIntro.addEventListener("click", () => playScript("intro"));
-  dom.playDay.addEventListener("click", () => playScript("day"));
-  dom.playNightScript.addEventListener("click", () => playScript("night"));
-  dom.stopSpeech.addEventListener("click", stopSpeech);
-  dom.startNight.addEventListener("click", handleStartNightAudio);
-  dom.stopNight.addEventListener("click", stopNightAudio);
-  dom.orientationEnabled.addEventListener("change", updateScriptViews);
+  bindScriptPanelEvents();
+  dom.startNight.addEventListener("click", handlePlayNightAudio);
+  dom.pauseNight.addEventListener("click", toggleNightAudioPause);
+  dom.ambienceSelect.addEventListener("change", handleAmbienceChange);
+  dom.orientationEnabled.addEventListener("change", handleOrientationToggle);
   dom.voiceRate.addEventListener("input", updateVoiceControlReadouts);
-  dom.voicePitch.addEventListener("input", updateVoiceControlReadouts);
-  dom.voiceMode.addEventListener("change", populateVoiceList);
   dom.testVoice.addEventListener("click", handleTestVoice);
-  dom.resetVoice.addEventListener("click", resetVoiceControls);
   window.speechSynthesis?.addEventListener?.("voiceschanged", populateVoiceList);
   window.addEventListener("beforeunload", () => {
     stopSpeech();
     stopNightAudio();
   });
+}
+
+function buildScriptPanelDom() {
+  return Object.fromEntries(
+    SCRIPT_TYPES.map((type) => {
+      const panel = document.querySelector(`[data-script-panel="${type}"]`);
+      return [
+        type,
+        {
+          panel,
+          playButton: panel?.querySelector('[data-script-action="play"]') || null,
+          pauseButton: panel?.querySelector('[data-script-action="pause"]') || null,
+          progressInput: panel?.querySelector("[data-script-progress-input]") || null,
+          progressMeta: panel?.querySelector("[data-script-progress-meta]") || null,
+        },
+      ];
+    })
+  );
+}
+
+function bindScriptPanelEvents() {
+  SCRIPT_TYPES.forEach((type) => {
+    const panelDom = dom.scriptPanels[type];
+    if (!panelDom) return;
+    panelDom.playButton?.addEventListener("click", () => playScript(type));
+    panelDom.pauseButton?.addEventListener("click", () => toggleScriptPause(type));
+    panelDom.progressInput?.addEventListener("pointerdown", (event) => beginScriptScrub(type, event));
+    panelDom.progressInput?.addEventListener("pointerup", () => endScriptScrub(type));
+    panelDom.progressInput?.addEventListener("pointercancel", () => endScriptScrub(type));
+    panelDom.progressInput?.addEventListener("input", (event) => updateScriptScrub(type, event));
+    panelDom.progressInput?.addEventListener("change", () => endScriptScrub(type));
+  });
+}
+
+function handleOrientationToggle() {
+  if (!dom.orientationEnabled.checked && state.scriptPlayback?.type === "orientation") {
+    stopSpeech();
+  }
+  updateScriptViews();
 }
 
 function setupAccessGate() {
@@ -405,11 +481,64 @@ function renderRolePicker() {
             </span>
           </span>
         </label>
+        ${renderRolePickerExtras(role)}
       </div>
     `;
   }).join("");
   dom.rolesGrid.innerHTML = html;
+  bindRolePickerControls();
   renderRoleIconLegend();
+}
+
+function renderRolePickerExtras(role) {
+  if (role.id !== "union-rep") return "";
+  return `
+    <div class="role-extra">
+      <span class="role-extra-label">Union members</span>
+      <div class="count-toggle" data-role-count="union-rep" aria-label="Union member count">
+        ${renderCountChoice(MIN_UNION_REPS, state.unionRepCount === MIN_UNION_REPS)}
+        ${renderCountChoice(MAX_UNION_REPS, state.unionRepCount === MAX_UNION_REPS)}
+      </div>
+    </div>
+  `;
+}
+
+function renderCountChoice(count, isActive) {
+  return `
+    <button
+      type="button"
+      class="count-choice${isActive ? " active" : ""}"
+      data-action="set-union-count"
+      data-count="${count}"
+      aria-pressed="${isActive ? "true" : "false"}"
+    >${count}</button>
+  `;
+}
+
+function bindRolePickerControls() {
+  dom.rolesGrid.querySelectorAll('[data-action="set-union-count"]').forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      const nextCount = Number(event.currentTarget.dataset.count);
+      if (nextCount !== MIN_UNION_REPS && nextCount !== MAX_UNION_REPS) return;
+      state.unionRepCount = nextCount;
+      updateUnionRepCountButtons();
+
+      const unionCheckbox = dom.rolesGrid.querySelector('input[value="union-rep"]');
+      if (unionCheckbox) {
+        unionCheckbox.checked = true;
+      }
+    });
+  });
+}
+
+function updateUnionRepCountButtons() {
+  dom.rolesGrid.querySelectorAll('[data-action="set-union-count"]').forEach((button) => {
+    const count = Number(button.dataset.count);
+    const isActive = count === state.unionRepCount;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
 }
 
 function renderRoleIconLegend() {
@@ -510,7 +639,12 @@ function getSelectedRoles() {
   const checkedIds = Array.from(
     dom.rolesGrid.querySelectorAll('input[type="checkbox"]:checked')
   ).map((input) => input.value);
-  const selected = CITIZEN_ROLES.filter((role) => checkedIds.includes(role.id));
+  const selected = CITIZEN_ROLES.filter((role) => checkedIds.includes(role.id)).map((role) => {
+    if (role.id === "union-rep") {
+      return { ...role, count: state.unionRepCount };
+    }
+    return role;
+  });
   return selected;
 }
 
@@ -684,20 +818,11 @@ function buildAssignments(players, zombieCount, selectedRoles) {
 
 function buildScripts(assignments, activeRoles) {
   const roleIds = new Set(activeRoles.map((role) => role.id));
-  const hasSycophant = roleIds.has("sycophant");
 
   const orientation = [
     SCRIPT_TEXT.orientation[0],
-    hasSycophant
-      ? SCRIPT_TEXT.orientation[1]
-      : SCRIPT_TEXT.orientation[1]
-          .replace(
-            "[There is also potentially a Sycophant who is aligned with the Zombie Leaders, but who they don’t know about.]",
-            ""
-          )
-          .replace("[and the Sycophant will win too]", "")
-          .replace(/\s{2,}/g, " ")
-          .trim(),
+    SCRIPT_TEXT.orientation[1],
+    SCRIPT_TEXT.orientation[2],
   ];
 
   const orientationRoleLines = [];
@@ -718,7 +843,7 @@ function buildScripts(assignments, activeRoles) {
   }
   if (roleIds.has("office-matchmaker")) {
     orientationRoleLines.push(
-      "We have an Office Matchmaker who is keen to cultivate office romance and who is going to weave their magic to make two members of HDC fall in love. This, though, means that if one of these two Lovers leaves the organization (for whatever reason) the other will too."
+      "We have a Matchmaker who is keen to cultivate office romance and who is going to weave their magic to make two members of HDC fall in love. However, this means that if one of these two Lovers leaves the organization (for whatever reason) the other will too. …."
     );
   }
   if (roleIds.has("union-rep")) {
@@ -728,7 +853,7 @@ function buildScripts(assignments, activeRoles) {
   }
   if (roleIds.has("training-supervisor")) {
     orientationRoleLines.push(
-      "We also have a very enthusiastic Training Supervisor. They take their job seriously and every day will be send one person off to complete mandatory training."
+      "We also have a very enthusiastic Training Supervisor. They take their job seriously and every day will be send one person off to complete mandatory training. There are a range of courses that people will be completing — covering everything from Managing Conflicts of Interest and Respectful Relationships in the Workplace to Fire Safety. These courses were mandated by the Zombie Leaders, but, as you’ll discover, they don’t pay much attention to them themselves."
     );
   }
   if (roleIds.has("schosshundchen")) {
@@ -753,109 +878,101 @@ function buildScripts(assignments, activeRoles) {
   }
 
   if (orientationRoleLines.length) {
-    orientation.push(orientationRoleLines.join(" "));
+    orientation.push(...orientationRoleLines);
   }
+  orientation.push(SCRIPT_TEXT.orientation[3]);
   orientation.push(SCRIPT_TEXT.orientation[4]);
 
-  const intro = [];
-  intro.push(
-    hasSycophant
-      ? "The first thing I’d like to do is work out what role everyone has, because, after the last restructure that the Zombie Leaders initiated, everyone — including me — is a lot confused. And because some of this information is secret, I’d also like everyone to close your eyes. First, I’d like the Zombie Leaders to open your eyes and acknowledge each other. You are dirtbags and proud of it. Now please close your eyes and raise one hand. Could the Sycophant also please open your eyes and look at me and take note of the Zombie Leaders with their hands raised. Now please close your eyes and do your worst."
-      : "The first thing I’d like to do is work out what role everyone has, because, after the last restructure that the Zombie Leaders initiated, everyone — including me — is a lot confused. And because some of this information is secret, I’d also like everyone to close your eyes. First, I’d like the Zombie Leaders to open your eyes and acknowledge each other. You are dirtbags and proud of it. Now please close your eyes."
-  );
-
+  const intro = [
+    SCRIPT_TEXT.intro[0],
+    SCRIPT_PAUSE_2S_MARKER,
+    SCRIPT_TEXT.intro[1],
+    SCRIPT_PAUSE_2S_MARKER,
+    SCRIPT_TEXT.intro[2],
+    SCRIPT_PAUSE_MARKER,
+  ];
+  if (roleIds.has("sycophant")) {
+    intro.push(SCRIPT_TEXT.intro[3]);
+    intro.push(SCRIPT_PAUSE_2S_MARKER);
+    intro.push(SCRIPT_TEXT.intro[4]);
+    intro.push(SCRIPT_PAUSE_MARKER);
+  }
   if (roleIds.has("office-manager")) {
-    intro.push(
-      "Now could the Integrity Officer open your eyes and look at me please. Thank you and good luck. Please close your eyes."
-    );
+    intro.push(SCRIPT_TEXT.intro[5]);
+    intro.push(SCRIPT_PAUSE_MARKER);
   }
   if (roleIds.has("hr-lead")) {
-    intro.push(
-      "Now could the Personnel Manager please open your eyes and look at me. Thank you and good luck. Please close your eyes."
-    );
+    intro.push(SCRIPT_TEXT.intro[6]);
+    intro.push(SCRIPT_PAUSE_MARKER);
   }
   if (roleIds.has("it-specialist")) {
-    intro.push(
-      "Now IT Specialist open your eyes and look at me please. Thank you and good luck. Please close your eyes."
-    );
+    intro.push(SCRIPT_TEXT.intro[7]);
+    intro.push(SCRIPT_PAUSE_MARKER);
   }
   if (roleIds.has("training-supervisor")) {
-    intro.push(
-      "Now could the Training Supervisor open your eyes and look at me please. Thank you and good luck. Please close your eyes."
-    );
+    intro.push(SCRIPT_TEXT.intro[8]);
+    intro.push(SCRIPT_PAUSE_MARKER);
   }
   if (roleIds.has("schosshundchen")) {
-    intro.push(
-      "Now could the Schoßhündchen (Boss’s Pet) open your eyes and look at me please. Thank you and good luck. Please close your eyes."
-    );
+    intro.push(SCRIPT_TEXT.intro[9]);
+    intro.push(SCRIPT_PAUSE_MARKER);
   }
   if (roleIds.has("social-club-organizer")) {
-    intro.push(
-      "Now could the Social Club Organizer open your eyes and look at me please. Thank you and good luck. Please close your eyes."
-    );
+    intro.push(SCRIPT_TEXT.intro[10]);
+    intro.push(SCRIPT_PAUSE_MARKER);
   }
   if (roleIds.has("office-gossip")) {
-    intro.push(
-      "Now could the Office Gossip open your eyes and look at me please. Thank you and good luck. Please close your eyes."
-    );
-  }
-  if (roleIds.has("intern")) {
-    intro.push(
-      "Now could the Intern open your eyes and look at me please. Thank you and good luck. Please close your eyes."
-    );
+    intro.push(SCRIPT_TEXT.intro[11]);
+    intro.push(SCRIPT_PAUSE_MARKER);
   }
   if (roleIds.has("office-matchmaker")) {
-    intro.push(
-      "Now could the Office Matchmaker open your eyes and look at me. Can you point to two people who you would like to fall in love with each other? [Pause] Thank you — you can close your eyes. Now if I tap you on the knee, please open your eyes and gaze upon your new life partner. Your fates will now be inextricably intertwined — so if one of you leaves us, the other will too. [Pause] Now please close your eyes and commit yourselves to a future in which you are bound together in perpetuity."
-    );
+    intro.push(SCRIPT_TEXT.intro[12]);
+    intro.push(SCRIPT_PAUSE_MARKER);
+    intro.push(SCRIPT_TEXT.intro[13]);
+    intro.push(SCRIPT_PAUSE_2S_MARKER);
+    intro.push(SCRIPT_TEXT.intro[14]);
+    intro.push(SCRIPT_PAUSE_MARKER);
   }
   if (roleIds.has("union-rep")) {
-    intro.push(
-      "Now could the Union Reps open your eyes and identify each other. You have a difficult job ahead of you and you will need to work as a united force. Your strength lies in your solidarity and your unwavering commitment to the AntiZombie Leadership Alliance. Remember, you are fighting for fairness, for dignity, and for a better future — but you can never speak of this endeavour. Thank you. And now please close your eyes."
-    );
+    intro.push(SCRIPT_TEXT.intro[15]);
+    intro.push(SCRIPT_PAUSE_MARKER);
   }
+  intro.push(SCRIPT_TEXT.intro[16]);
+  intro.push(SCRIPT_PAUSE_MARKER);
+  intro.push(SCRIPT_TEXT.intro[17]);
+  intro.push(SCRIPT_TEXT.intro[18]);
+  intro.push(SCRIPT_TEXT.intro[19]);
 
-  intro.push(
-    "Finally, could the Organizational citizens please keep your eyes closed and raise your hands so that I can see who you are? Thank you. We are now ready to get to work. This is a new day at Happy Days Corporation and the first thing I’d like you to do is elect a Head of Department. This person is going to be in charge of your meetings and they will also have the deciding vote if any votes are tied — so choose wisely."
-  );
-
-  const day = [
-    "We would like you to have a discussion to see if there is anyone you would like to remove from the organization because you suspect them of being a Zombie Leader. You can also choose not to remove anyone, but that decision must be unanimous. [Pause for discussion: setting alarm time] Now I know it’s been a long day and that everyone is very tired, but before you go home, we need to make plans for tomorrow. I’d also like you to close your eyes so that we can do this in private.",
-  ];
-  if (roleIds.has("office-manager")) {
-    day.push(
-      "Integrity Officer please open your eyes and tell me whose CV you would like to take home to have a look at? [Pause] Thank you. Please close your eyes."
-    );
-  }
-  if (roleIds.has("hr-lead")) {
-    day.push(
-      "Personnel Manager please open your eyes and indicate whose career you would like to save from attack by Zombie Leaders tonight. [Pause] Thank you. Please close your eyes."
-    );
-  }
-  if (roleIds.has("it-specialist")) {
-    day.push(
-      "Now IT Specialist please open your eyes and let me know if you would like to use your one chance to save the person who is going to be targeted by the ZLs tonight? Do you want to use your one chance to get rid of someone? [Pause] Thank you. Now please close your eyes."
-    );
-  }
+  const day = [SCRIPT_TEXT.day[0]];
 
   const night = [SCRIPT_TEXT.night[0]];
   if (roleIds.has("training-supervisor")) {
     night.push(SCRIPT_TEXT.night[1]);
-  }
-  if (roleIds.has("social-club-organizer")) {
+    night.push(SCRIPT_PAUSE_MARKER);
     night.push(SCRIPT_TEXT.night[2]);
   }
-  if (roleIds.has("office-gossip")) {
+  if (roleIds.has("social-club-organizer")) {
     night.push(SCRIPT_TEXT.night[3]);
-  }
-  if (roleIds.has("intern")) {
+    night.push(SCRIPT_PAUSE_MARKER);
     night.push(SCRIPT_TEXT.night[4]);
   }
-  night.push(SCRIPT_TEXT.night[5]);
-  night.push(SCRIPT_TEXT.night[6]);
-  night.push(SCRIPT_TEXT.night[7]);
-  night.push(SCRIPT_TEXT.night[8]);
+  if (roleIds.has("office-gossip")) {
+    night.push(SCRIPT_TEXT.night[5]);
+    night.push(SCRIPT_PAUSE_MARKER);
+    night.push(SCRIPT_TEXT.night[6]);
+  }
+  if (roleIds.has("intern")) {
+    night.push(SCRIPT_TEXT.night[7]);
+    night.push(SCRIPT_PAUSE_MARKER);
+    night.push(SCRIPT_TEXT.night[8]);
+  }
   night.push(SCRIPT_TEXT.night[9]);
+  night.push(SCRIPT_TEXT.night[10]);
+  night.push(SCRIPT_TEXT.night[11]);
+  night.push(SCRIPT_TEXT.night[12]);
+  night.push(SCRIPT_PAUSE_MARKER);
+  night.push(SCRIPT_TEXT.night[13]);
+  night.push(SCRIPT_TEXT.night[14]);
 
   return { orientation, intro, day, night };
 }
@@ -1060,74 +1177,45 @@ function revealAllCards() {
 
 function populateVoiceList() {
   if (!window.speechSynthesis) {
-    dom.voiceSelect.innerHTML = `<option value="">Speech not supported</option>`;
-    dom.voiceMode.disabled = true;
+    if (dom.voiceChoices) {
+      dom.voiceChoices.innerHTML = `<div class="voice-empty">Speech not supported</div>`;
+    }
     dom.testVoice.disabled = true;
-    dom.resetVoice.disabled = true;
-    dom.playOrientation.disabled = true;
-    dom.playIntro.disabled = true;
-    dom.playDay.disabled = true;
-    dom.playNightScript.disabled = true;
-    dom.stopSpeech.disabled = true;
+    setScriptPlaybackControlsDisabled(true);
     return;
   }
 
-  const previousKey = dom.voiceSelect.value;
   const allVoices = window.speechSynthesis.getVoices();
   state.voices = allVoices;
 
   if (!allVoices.length) {
-    dom.voiceSelect.innerHTML = `<option value="">Loading voices...</option>`;
+    if (dom.voiceChoices) {
+      dom.voiceChoices.innerHTML = `<div class="voice-empty">Loading voices...</div>`;
+    }
     return;
   }
-
-  const filteredVoices = sortVoicesByQuality(
-    filterVoicesByMode(allVoices, dom.voiceMode.value)
-  );
-  const voicesToRender = filteredVoices.length ? filteredVoices : sortVoicesByQuality(allVoices);
 
   state.voiceMap = new Map();
-  dom.voiceSelect.innerHTML = "";
-  voicesToRender.forEach((voice) => {
-    const option = document.createElement("option");
-    const key = getVoiceKey(voice);
-    option.value = key;
-    option.textContent = `${voice.name} (${voice.lang}${voice.localService ? ", local" : ", remote"})`;
-    dom.voiceSelect.appendChild(option);
-    state.voiceMap.set(key, voice);
+  FEATURED_VOICE_OPTIONS.forEach((option) => {
+    const matches = allVoices.filter((voice) => option.matcher.test(voice.name || ""));
+    const bestMatch = matches.length ? sortVoicesByQuality(matches)[0] : null;
+    if (bestMatch) {
+      state.voiceMap.set(option.id, bestMatch);
+    }
   });
 
-  if (state.voiceMap.has(previousKey)) {
-    dom.voiceSelect.value = previousKey;
-    return;
+  if (!state.voiceMap.has(state.selectedVoiceId)) {
+    const firstAvailable = FEATURED_VOICE_OPTIONS.find((option) => state.voiceMap.has(option.id));
+    state.selectedVoiceId = firstAvailable ? firstAvailable.id : FEATURED_VOICE_OPTIONS[0].id;
   }
 
-  const bestVoice = pickBestVoice(voicesToRender) || voicesToRender[0];
-  if (bestVoice) {
-    dom.voiceSelect.value = getVoiceKey(bestVoice);
-  }
+  renderVoiceChoices();
+  setScriptPlaybackControlsDisabled(false);
+  syncScriptPlaybackUI();
 }
 
 function selectedVoice() {
-  const key = dom.voiceSelect.value;
-  if (!key) return null;
-  return state.voiceMap.get(key) || null;
-}
-
-function filterVoicesByMode(voices, mode) {
-  const englishVoices = voices.filter((voice) => ENGLISH_LANG_RE.test(voice.lang));
-  const stableEnglish = englishVoices.filter((voice) => voice.localService);
-  const danielVoice = voices.find((voice) => /\bdaniel\b/i.test(voice.name || ""));
-
-  if (mode === "all") return voices;
-  if (mode === "english") return englishVoices;
-
-  const base = stableEnglish.length ? stableEnglish : englishVoices;
-  if (!danielVoice) return base;
-  if (base.some((voice) => getVoiceKey(voice) === getVoiceKey(danielVoice))) {
-    return base;
-  }
-  return [danielVoice, ...base];
+  return state.voiceMap.get(state.selectedVoiceId) || null;
 }
 
 function sortVoicesByQuality(voices) {
@@ -1151,6 +1239,44 @@ function pickBestVoice(voices) {
   return sortVoicesByQuality(voices)[0];
 }
 
+function renderVoiceChoices() {
+  if (!dom.voiceChoices) return;
+  dom.voiceChoices.innerHTML = FEATURED_VOICE_OPTIONS.map((option) => {
+    const voice = state.voiceMap.get(option.id);
+    const isActive = option.id === state.selectedVoiceId && Boolean(voice);
+    return `
+      <button
+        type="button"
+        class="voice-choice${isActive ? " active" : ""}${voice ? "" : " unavailable"}"
+        data-action="select-voice"
+        data-voice-id="${option.id}"
+        aria-pressed="${isActive ? "true" : "false"}"
+      >
+        <span class="voice-choice-thumb">
+          <img class="voice-choice-image" src="${escapeHtml(encodeURI(option.image))}" alt="">
+        </span>
+        <span class="voice-choice-copy">
+          <span class="voice-choice-name">${option.name}</span>
+          ${voice ? "" : '<span class="voice-choice-meta">Unavailable on this device</span>'}
+        </span>
+      </button>
+    `;
+  }).join("");
+
+  dom.voiceChoices.querySelectorAll('[data-action="select-voice"]').forEach((button) => {
+    button.addEventListener("click", () => {
+      const voiceId = button.dataset.voiceId;
+      if (!state.voiceMap.has(voiceId)) {
+        setAudioStatus(`Voice ${capitalize(voiceId)} is not available on this device.`, true);
+        return;
+      }
+      state.selectedVoiceId = voiceId;
+      renderVoiceChoices();
+      setAudioStatus(`${capitalize(voiceId)} selected.`);
+    });
+  });
+}
+
 function getVoiceKey(voice) {
   return [voice.voiceURI || "", voice.name || "", voice.lang || ""].join("|");
 }
@@ -1161,29 +1287,23 @@ function normalizeLang(lang) {
 
 function updateVoiceControlReadouts() {
   const speed = Number(dom.voiceRate.value).toFixed(2);
-  const pitch = Number(dom.voicePitch.value).toFixed(2);
   dom.voiceRateValue.textContent = `${speed}x`;
-  dom.voicePitchValue.textContent = `${pitch}x`;
-}
-
-function resetVoiceControls() {
-  dom.voiceRate.value = "1";
-  dom.voicePitch.value = "1";
-  dom.voiceMode.value = "recommended";
-  updateVoiceControlReadouts();
-  populateVoiceList();
-  setAudioStatus("Voice settings reset to stable defaults.");
 }
 
 function handleTestVoice() {
   const sample = [
     "Voice test for Zombie Leaders.",
-    "This is the current voice, speed, and pitch setting.",
+    "This is the current voice and speed setting.",
   ];
-  speakLines(sample, "voice test");
+  speakLines(sample, { label: "Voice test" });
 }
 
 function playScript(type) {
+  if (state.scriptPendingResume?.type === type) {
+    resumeScriptFromPending(type);
+    return;
+  }
+
   if (type === "orientation" && !dom.orientationEnabled.checked) {
     setAudioStatus("Orientation is optional and currently disabled.", true);
     return;
@@ -1195,33 +1315,72 @@ function playScript(type) {
     return;
   }
 
-  speakLines(lines, type);
+  const fullSegments = buildSpeechSegments(lines);
+  speakLines(lines, {
+    label: SCRIPT_LABELS[type] || "Script",
+    scriptType: type,
+    fullLines: lines,
+    fullSegments,
+    startSegmentIndex: 0,
+  });
 }
 
-function speakLines(lines, typeLabel) {
+function speakLines(lines, options = {}) {
   if (!window.speechSynthesis) {
     setAudioStatus("Speech synthesis is not supported in this browser.", true);
     return;
   }
 
   stopSpeech();
+  const {
+    label = "Voice",
+    scriptType = null,
+    fullLines = lines,
+    fullSegments = buildSpeechSegments(fullLines),
+    startSegmentIndex = 0,
+  } = options;
   const sessionId = state.speechSessionId;
-  const chosenVoice = selectedVoice();
+  let chosenVoice = selectedVoice();
+  let chosenVoiceId = state.selectedVoiceId;
   const rate = Number(dom.voiceRate.value);
-  const pitch = Number(dom.voicePitch.value);
-  let currentLine = 0;
+  const segmentsToSpeak = fullSegments.slice(startSegmentIndex);
+  let currentSegment = 0;
   let useFallbackVoice = false;
   const isCurrentSession = () => state.speechSessionId === sessionId;
+  if (scriptType) {
+    startScriptPlayback(scriptType, fullLines, fullSegments, rate, sessionId);
+  }
 
   const speakNext = () => {
     if (!isCurrentSession()) return;
 
-    if (currentLine >= lines.length) {
-      setAudioStatus(`${capitalize(typeLabel)} sequence complete.`);
+    if (currentSegment >= segmentsToSpeak.length) {
+      finishScriptPlayback(sessionId, true);
+      setAudioStatus(`${label} complete.`);
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(lines[currentLine]);
+    const fullSegmentIndex = startSegmentIndex + currentSegment;
+    const currentSegmentData = segmentsToSpeak[currentSegment];
+    const currentText = currentSegmentData.text;
+    if (currentText === SCRIPT_PAUSE_MARKER) {
+      pauseScriptAtCue(sessionId, fullLines, fullSegments, fullSegmentIndex + 1);
+      setAudioStatus(`${label} paused at cue. Press Resume to continue.`);
+      return;
+    }
+    if (currentText === SCRIPT_PAUSE_2S_MARKER) {
+      markScriptPlaybackLineStart(sessionId, fullSegmentIndex);
+      setAudioStatus(`${label}: pausing for 2 seconds.`);
+      window.setTimeout(() => {
+        if (!isCurrentSession()) return;
+        markScriptPlaybackLineEnd(sessionId, fullSegmentIndex);
+        currentSegment += 1;
+        speakNext();
+      }, 2000);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(currentText);
     if (chosenVoice && !useFallbackVoice) {
       utterance.voice = chosenVoice;
       utterance.lang = chosenVoice.lang || "en-AU";
@@ -1232,12 +1391,23 @@ function speakLines(lines, typeLabel) {
     }
 
     utterance.rate = rate;
-    utterance.pitch = pitch;
+    utterance.volume = SCRIPT_VOICE_VOLUME;
     utterance.onstart = () => {
       if (!isCurrentSession()) return;
+      markScriptPlaybackLineStart(sessionId, fullSegmentIndex);
+      const spokenTotal = countSpokenLines(fullLines);
+      const spokenCurrent = spokenLineNumberAt(fullLines, currentSegmentData.sourceLineIndex);
       setAudioStatus(
-        `${capitalize(typeLabel)}: line ${currentLine + 1} of ${lines.length}`
+        `${label}: line ${spokenCurrent} of ${spokenTotal}`
       );
+    };
+    utterance.onpause = () => {
+      if (!isCurrentSession()) return;
+      pauseScriptPlayback(sessionId);
+    };
+    utterance.onresume = () => {
+      if (!isCurrentSession()) return;
+      resumeScriptPlayback(sessionId);
     };
     utterance.onerror = (event) => {
       if (!isCurrentSession()) return;
@@ -1248,19 +1418,37 @@ function speakLines(lines, typeLabel) {
       }
 
       if (chosenVoice && !useFallbackVoice) {
-        useFallbackVoice = true;
+        const fallbackOption = FEATURED_VOICE_OPTIONS.find(
+          (option) => option.id !== chosenVoiceId && state.voiceMap.has(option.id)
+        );
+        if (fallbackOption) {
+          useFallbackVoice = true;
+          chosenVoiceId = fallbackOption.id;
+          chosenVoice = state.voiceMap.get(fallbackOption.id) || null;
+          state.selectedVoiceId = chosenVoiceId;
+          renderVoiceChoices();
+          setAudioStatus(
+            `Selected voice failed (${errorName}). Switching to ${fallbackOption.name}.`,
+            true
+          );
+          window.setTimeout(speakNext, 25);
+          return;
+        }
+
+        finishScriptPlayback(sessionId, false);
         setAudioStatus(
-          `Selected voice failed (${errorName}). Switching to browser default voice.`,
+          `Selected voice failed (${errorName}).`,
           true
         );
-        window.setTimeout(speakNext, 25);
         return;
       }
+      finishScriptPlayback(sessionId, false);
       setAudioStatus(`Speech playback failed (${errorName}).`, true);
     };
     utterance.onend = () => {
       if (!isCurrentSession()) return;
-      currentLine += 1;
+      markScriptPlaybackLineEnd(sessionId, fullSegmentIndex);
+      currentSegment += 1;
       speakNext();
     };
     window.speechSynthesis.speak(utterance);
@@ -1270,20 +1458,505 @@ function speakLines(lines, typeLabel) {
 }
 
 function stopSpeech() {
+  clearScriptPlayback(false);
   state.speechSessionId += 1;
   if (window.speechSynthesis?.speaking || window.speechSynthesis?.pending) {
     window.speechSynthesis.cancel();
   }
 }
 
-function handleStartNightAudio() {
-  const seconds = Number(dom.nightDuration.value);
-  if (!Number.isFinite(seconds) || seconds < 15 || seconds > 240) {
-    setAudioStatus("Background audio duration must be between 15 and 240 seconds.", true);
+function toggleScriptPause(type) {
+  if (state.scriptPendingResume?.type === type) return;
+  if (state.scriptPlayback?.type !== type) return;
+  if (!window.speechSynthesis) return;
+
+  if (window.speechSynthesis.paused) {
+    window.speechSynthesis.resume();
+    setAudioStatus(`${SCRIPT_LABELS[type] || "Script"} resumed.`);
+    return;
+  }
+
+  if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+    window.speechSynthesis.pause();
+    setAudioStatus(`${SCRIPT_LABELS[type] || "Script"} paused.`);
+  }
+}
+
+function setScriptPlaybackControlsDisabled(disabled) {
+  SCRIPT_TYPES.forEach((type) => {
+    const panelDom = dom.scriptPanels[type];
+    if (!panelDom) return;
+    if (panelDom.playButton) panelDom.playButton.disabled = disabled;
+    if (panelDom.pauseButton) panelDom.pauseButton.disabled = true;
+  });
+}
+
+function startScriptPlayback(type, lines, fullSegments, rate, sessionId) {
+  clearScriptPlayback(false);
+  state.completedScriptPlayback = null;
+  const timeline = buildScriptTimeline(fullSegments, rate);
+
+  state.scriptPlayback = {
+    type,
+    label: SCRIPT_LABELS[type] || "Script",
+    sessionId,
+    fullLines: lines,
+    fullSegments,
+    rate,
+    lineDurations: timeline.lineDurations,
+    lineOffsets: timeline.lineOffsets,
+    totalMs: timeline.totalMs,
+    currentLine: -1,
+    lineStartedAt: 0,
+    pausedAt: 0,
+    isPaused: false,
+    timerId: 0,
+    lastElapsedMs: 0,
+  };
+
+  state.scriptPlayback.timerId = window.setInterval(syncScriptPlaybackUI, 160);
+  syncScriptPlaybackUI();
+}
+
+function pauseScriptAtCue(sessionId, fullLines, fullSegments, nextLineIndex) {
+  const playback = getScriptPlayback(sessionId);
+  if (!playback) return;
+  const clampedNext = clamp(nextLineIndex, 0, fullSegments.length);
+  const elapsedMs = playback.lineOffsets[clampedNext] || playback.totalMs || 0;
+  setScriptResumePoint(playback.type, fullLines, fullSegments, playback.rate, clampedNext, elapsedMs, {
+    reason: "cue",
+    sessionId: playback.sessionId,
+  });
+}
+
+function resumeScriptFromPending(type) {
+  const pending = state.scriptPendingResume;
+  if (!pending || pending.type !== type) return;
+  const remainingLines = pending.fullSegments.slice(pending.nextLineIndex);
+  state.scriptPendingResume = null;
+  if (!remainingLines.length) {
+    state.completedScriptPlayback = {
+      type,
+      totalMs: pending.elapsedMs,
+      elapsedMs: pending.elapsedMs,
+    };
+    syncScriptPlaybackUI();
+    setAudioStatus(`${SCRIPT_LABELS[type] || "Script"} complete.`);
+    return;
+  }
+  speakLines(remainingLines, {
+    label: pending.label,
+    scriptType: type,
+    fullLines: pending.fullLines,
+    fullSegments: pending.fullSegments,
+    startSegmentIndex: pending.nextLineIndex,
+  });
+}
+
+function beginScriptScrub(type, event) {
+  const panelDom = dom.scriptPanels[type];
+  const fullLines = state.scripts[type];
+  if (!panelDom?.progressInput || !fullLines?.length || !window.speechSynthesis) return;
+  if (type === "orientation" && !dom.orientationEnabled.checked) return;
+  const initialValue = Number(panelDom.progressInput.value || 0);
+
+  const hasQueuedSpeech = Boolean(
+    window.speechSynthesis.speaking ||
+    window.speechSynthesis.pending ||
+    window.speechSynthesis.paused
+  );
+  const currentlyActive = state.scriptPlayback?.type === type;
+  const currentlyAwaitingRestart = state.scriptPendingResume?.type === type;
+  const shouldResumeOnRelease =
+    currentlyActive && !currentlyAwaitingRestart && !state.scriptPlayback?.isPaused &&
+    Boolean(window.speechSynthesis.speaking || window.speechSynthesis.pending);
+
+  if (hasQueuedSpeech) {
+    stopSpeech();
+  }
+
+  state.scriptScrub = {
+    type,
+    pointerId: event.pointerId,
+    shouldResumeOnRelease,
+  };
+  panelDom.progressInput.value = String(initialValue);
+  updateScriptScrub(type, { currentTarget: panelDom.progressInput });
+}
+
+function updateScriptScrub(type, event) {
+  const panelDom = dom.scriptPanels[type];
+  const fullLines = state.scripts[type];
+  if (!panelDom?.progressInput || !fullLines?.length) return;
+  const value = Number(event.currentTarget?.value ?? panelDom.progressInput.value ?? 0);
+  const max = Number(event.currentTarget?.max ?? panelDom.progressInput.max ?? 1000);
+  const ratio = max > 0 ? clamp(value / max, 0, 1) : 0;
+  const rate = Number(dom.voiceRate.value);
+  const fullSegments = buildSpeechSegments(fullLines);
+  const timeline = buildScriptTimeline(fullSegments, rate);
+  const elapsedMs = Math.round(timeline.totalMs * ratio);
+  const nextLineIndex = findSeekLineIndex(
+    fullSegments,
+    timeline.lineOffsets,
+    timeline.lineDurations,
+    elapsedMs
+  );
+  const snappedElapsed = timeline.lineOffsets[nextLineIndex] || timeline.totalMs || 0;
+  setScriptResumePoint(type, fullLines, fullSegments, rate, nextLineIndex, snappedElapsed, {
+    reason: "seek",
+  });
+}
+
+function endScriptScrub(type) {
+  if (state.scriptScrub?.type !== type) return;
+  const shouldResume = Boolean(state.scriptScrub?.shouldResumeOnRelease);
+  state.scriptScrub = null;
+  if (shouldResume) {
+    resumeScriptFromPending(type);
+  }
+}
+
+function setScriptResumePoint(type, fullLines, fullSegments, rate, nextLineIndex, elapsedMs, options = {}) {
+  const timeline = buildScriptTimeline(fullSegments, rate);
+  const safeIndex = clamp(nextLineIndex, 0, fullSegments.length);
+  const safeElapsed = clamp(elapsedMs, 0, timeline.totalMs);
+  if (state.scriptPlayback?.timerId) {
+    window.clearInterval(state.scriptPlayback.timerId);
+  }
+
+  state.completedScriptPlayback = null;
+  state.scriptPlayback = {
+    type,
+    label: SCRIPT_LABELS[type] || "Script",
+    sessionId: options.sessionId ?? state.speechSessionId,
+    fullLines,
+    fullSegments,
+    rate,
+    lineDurations: timeline.lineDurations,
+    lineOffsets: timeline.lineOffsets,
+    totalMs: timeline.totalMs,
+    currentLine: Math.max(0, safeIndex - 1),
+    lineStartedAt: 0,
+    pausedAt: 0,
+    isPaused: true,
+    timerId: 0,
+    lastElapsedMs: safeElapsed,
+  };
+  state.scriptPendingResume = {
+    type,
+    label: SCRIPT_LABELS[type] || "Script",
+    fullLines,
+    fullSegments,
+    nextLineIndex: safeIndex,
+    elapsedMs: safeElapsed,
+    reason: options.reason || "seek",
+  };
+  syncScriptPlaybackUI();
+}
+
+function markScriptPlaybackLineStart(sessionId, lineIndex) {
+  const playback = getScriptPlayback(sessionId);
+  if (!playback) return;
+  playback.currentLine = lineIndex;
+  playback.lineStartedAt = performance.now();
+  playback.pausedAt = 0;
+  playback.isPaused = false;
+  playback.lastElapsedMs = playback.lineOffsets[lineIndex] || 0;
+  syncScriptPlaybackUI();
+}
+
+function markScriptPlaybackLineEnd(sessionId, lineIndex) {
+  const playback = getScriptPlayback(sessionId);
+  if (!playback) return;
+  const lineOffset = playback.lineOffsets[lineIndex] || 0;
+  const lineDuration = playback.lineDurations[lineIndex] || 0;
+  playback.lastElapsedMs = lineOffset + lineDuration;
+  syncScriptPlaybackUI();
+}
+
+function pauseScriptPlayback(sessionId) {
+  const playback = getScriptPlayback(sessionId);
+  if (!playback || playback.isPaused) return;
+  playback.lastElapsedMs = getScriptPlaybackElapsedMs(playback);
+  playback.isPaused = true;
+  playback.pausedAt = performance.now();
+  syncScriptPlaybackUI();
+}
+
+function resumeScriptPlayback(sessionId) {
+  const playback = getScriptPlayback(sessionId);
+  if (!playback || !playback.isPaused) return;
+  if (playback.lineStartedAt && playback.pausedAt) {
+    playback.lineStartedAt += performance.now() - playback.pausedAt;
+  }
+  playback.isPaused = false;
+  playback.pausedAt = 0;
+  syncScriptPlaybackUI();
+}
+
+function finishScriptPlayback(sessionId, completed = false) {
+  const playback = getScriptPlayback(sessionId);
+  if (!playback) return;
+  if (playback.timerId) {
+    window.clearInterval(playback.timerId);
+    playback.timerId = 0;
+  }
+  playback.isPaused = false;
+  playback.lastElapsedMs = completed ? playback.totalMs : getScriptPlaybackElapsedMs(playback);
+  state.scriptPlayback = null;
+  state.scriptPendingResume = null;
+  state.completedScriptPlayback = completed
+    ? {
+        type: playback.type,
+        totalMs: playback.totalMs,
+        elapsedMs: playback.totalMs,
+      }
+    : null;
+  syncScriptPlaybackUI();
+}
+
+function clearScriptPlayback(completed = false) {
+  if (!state.scriptPlayback) {
+    if (!completed) {
+      state.completedScriptPlayback = null;
+      syncScriptPlaybackUI();
+    }
+    return;
+  }
+  finishScriptPlayback(state.scriptPlayback.sessionId, completed);
+}
+
+function getScriptPlayback(sessionId = null) {
+  if (!state.scriptPlayback) return null;
+  if (sessionId != null && state.scriptPlayback.sessionId !== sessionId) return null;
+  return state.scriptPlayback;
+}
+
+function getScriptPlaybackElapsedMs(playback) {
+  if (!playback) return 0;
+  if (playback.currentLine < 0 || !playback.lineStartedAt) {
+    return clamp(playback.lastElapsedMs || 0, 0, playback.totalMs || 0);
+  }
+  const lineOffset = playback.lineOffsets[playback.currentLine] || 0;
+  const lineDuration = playback.lineDurations[playback.currentLine] || 0;
+  if (playback.isPaused) {
+    return clamp(playback.lastElapsedMs || lineOffset, 0, playback.totalMs || 0);
+  }
+  const liveElapsed = performance.now() - playback.lineStartedAt;
+  return clamp(lineOffset + Math.min(liveElapsed, lineDuration), 0, playback.totalMs || 0);
+}
+
+function syncScriptPlaybackUI() {
+  const activePlayback = state.scriptPlayback;
+  const pendingResume = state.scriptPendingResume;
+  const completedPlayback = state.completedScriptPlayback;
+
+  SCRIPT_TYPES.forEach((type) => {
+    const panelDom = dom.scriptPanels[type];
+    if (!panelDom?.panel) return;
+
+    const hasSpeechSupport = Boolean(window.speechSynthesis);
+    const hasScript = Boolean(state.scripts[type]?.length);
+    const orientationDisabled = type === "orientation" && !dom.orientationEnabled.checked;
+    const isActive = activePlayback?.type === type;
+    const isPaused = isActive && activePlayback?.isPaused;
+    const isAwaitingRestart = pendingResume?.type === type;
+    const isCompleted = !isActive && completedPlayback?.type === type;
+
+    panelDom.panel.classList.toggle("active", Boolean(isActive));
+    panelDom.panel.classList.toggle("paused", Boolean(isPaused));
+
+    if (panelDom.playButton) {
+      panelDom.playButton.disabled = !hasSpeechSupport || !hasScript || orientationDisabled;
+      const playButtonActive = Boolean(isAwaitingRestart || (isActive && !isPaused && !isAwaitingRestart));
+      panelDom.playButton.classList.toggle("active", playButtonActive);
+      panelDom.playButton.setAttribute("aria-pressed", playButtonActive ? "true" : "false");
+      panelDom.playButton.innerHTML = isAwaitingRestart ? "&#9654; Resume" : "&#9654; Play";
+    }
+
+    if (panelDom.pauseButton) {
+      panelDom.pauseButton.disabled = !isActive || isAwaitingRestart;
+      panelDom.pauseButton.innerHTML = isPaused && !isAwaitingRestart ? "&#9654; Resume" : "&#9208; Pause";
+      panelDom.pauseButton.classList.toggle("active", Boolean(isPaused && !isAwaitingRestart));
+      panelDom.pauseButton.setAttribute(
+        "aria-pressed",
+        isPaused && !isAwaitingRestart ? "true" : "false"
+      );
+    }
+
+    if (panelDom.progressInput) {
+      panelDom.progressInput.disabled = !hasScript || orientationDisabled;
+    }
+
+    let progress = 0;
+    let metaText = !hasScript
+      ? "Generate a game to enable playback."
+      : orientationDisabled
+      ? "Orientation is disabled for this session."
+      : "Ready to play.";
+
+    if (isActive) {
+      const elapsedMs = isAwaitingRestart
+        ? pendingResume.elapsedMs
+        : getScriptPlaybackElapsedMs(activePlayback);
+      progress = activePlayback.totalMs ? elapsedMs / activePlayback.totalMs : 0;
+      metaText = isAwaitingRestart
+        ? pendingResume.reason === "cue"
+          ? `Paused at cue ${formatDuration(elapsedMs)} / ${formatDuration(activePlayback.totalMs)}. Press Resume to continue.`
+          : `Seeked to ${formatDuration(elapsedMs)} / ${formatDuration(activePlayback.totalMs)}. Press Resume to continue.`
+        : `${isPaused ? "Paused" : "Playing"} ${formatDuration(elapsedMs)} / ${formatDuration(
+            activePlayback.totalMs
+          )}`;
+    } else if (isCompleted) {
+      progress = 1;
+      metaText = `Complete ${formatDuration(completedPlayback.totalMs)}.`;
+    }
+
+    if (panelDom.progressInput) {
+      const progressPct = clamp(progress, 0, 1) * 100;
+      panelDom.progressInput.value = String(Math.round(progressPct * 10));
+      panelDom.progressInput.style.setProperty("--progress-pct", `${progressPct}%`);
+    }
+    if (panelDom.progressMeta) {
+      panelDom.progressMeta.textContent = metaText;
+    }
+  });
+}
+
+function estimateSpeechDurationMs(input, rate) {
+  const text = typeof input === "string" ? input : input?.text;
+  if (text === SCRIPT_PAUSE_MARKER) return 0;
+  if (text === SCRIPT_PAUSE_2S_MARKER) return 2000;
+  const safeRate = clamp(Number(rate) || 1, 0.6, 1.8);
+  const wordCount = String(text || "").trim().split(/\s+/).filter(Boolean).length;
+  const sentencePauses = (String(text || "").match(/[.!?]/g) || []).length * 280;
+  const clausePauses = (String(text || "").match(/[,:;—-]/g) || []).length * 110;
+  const bracketPauses = (String(text || "").match(/[\[\]()]/g) || []).length * 60;
+  const spokenMs = (wordCount / 170) * 60000;
+  return Math.max(1200, (spokenMs + sentencePauses + clausePauses + bracketPauses + 220) / safeRate);
+}
+
+function buildSpeechSegments(lines = []) {
+  const segments = [];
+  lines.forEach((line, sourceLineIndex) => {
+    if (line === SCRIPT_PAUSE_MARKER || line === SCRIPT_PAUSE_2S_MARKER) {
+      segments.push({ text: SCRIPT_PAUSE_MARKER, sourceLineIndex });
+      if (line === SCRIPT_PAUSE_2S_MARKER) {
+        segments[segments.length - 1].text = SCRIPT_PAUSE_2S_MARKER;
+      }
+      return;
+    }
+
+    const parts = String(line || "")
+      .split(/(?<=[.!?])\s+|(?<=;)\s+|(?<=:)\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (!parts.length) return;
+    parts.forEach((part) => {
+      segments.push({ text: part, sourceLineIndex });
+    });
+  });
+  return segments;
+}
+
+function buildScriptTimeline(segments, rate) {
+  const lineDurations = segments.map((segment) => estimateSpeechDurationMs(segment, rate));
+  const lineOffsets = [];
+  let totalMs = 0;
+  lineDurations.forEach((duration) => {
+    lineOffsets.push(totalMs);
+    totalMs += duration;
+  });
+  return {
+    lineDurations,
+    lineOffsets,
+    totalMs: Math.max(totalMs, 1000),
+  };
+}
+
+function findSeekLineIndex(lines, lineOffsets, lineDurations, targetMs) {
+  const safeTarget = Math.max(0, Number(targetMs) || 0);
+  const spokenIndexes = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => line?.text !== SCRIPT_PAUSE_MARKER && line?.text !== SCRIPT_PAUSE_2S_MARKER)
+    .map(({ index }) => index);
+
+  if (!spokenIndexes.length) return lines.length;
+
+  for (let position = 0; position < spokenIndexes.length; position += 1) {
+    const index = spokenIndexes[position];
+    const start = lineOffsets[index] || 0;
+    const nextIndex = spokenIndexes[position + 1];
+    const nextStart =
+      typeof nextIndex === "number"
+        ? lineOffsets[nextIndex] || start
+        : (lineOffsets[index] || 0) + (lineDurations[index] || 0);
+    const midpoint = start + Math.max(0, nextStart - start) / 2;
+    if (safeTarget <= midpoint) {
+      if (lines[index]?.text === SCRIPT_PAUSE_MARKER || lines[index]?.text === SCRIPT_PAUSE_2S_MARKER) {
+        return findNextSpokenLineIndex(lines, index + 1);
+      }
+      return index;
+    }
+  }
+  return findNextSpokenLineIndex(lines, lines.length);
+}
+
+function findNextSpokenLineIndex(lines, startIndex = 0) {
+  for (let index = Math.max(0, startIndex); index < lines.length; index += 1) {
+    if (lines[index]?.text !== SCRIPT_PAUSE_MARKER && lines[index]?.text !== SCRIPT_PAUSE_2S_MARKER) return index;
+  }
+  return lines.length;
+}
+
+function formatDuration(milliseconds) {
+  const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function countSpokenLines(lines = []) {
+  return lines.filter((line) => line !== SCRIPT_PAUSE_MARKER && line !== SCRIPT_PAUSE_2S_MARKER).length;
+}
+
+function spokenLineNumberAt(lines = [], lineIndex = 0) {
+  return lines
+    .slice(0, lineIndex + 1)
+    .filter((line) => line !== SCRIPT_PAUSE_MARKER && line !== SCRIPT_PAUSE_2S_MARKER).length;
+}
+
+function handlePlayNightAudio() {
+  const preset = selectedAmbiencePreset();
+  startNightAudio(preset);
+}
+
+function toggleNightAudioPause() {
+  if (!state.nightAudio) {
+    setAudioStatus("No background audio is currently playing.", true);
+    return;
+  }
+
+  if (state.nightAudio.isPaused) {
+    state.nightAudio.resume();
+  } else {
+    state.nightAudio.pause();
+  }
+}
+
+function handleAmbienceChange() {
+  if (!state.nightAudio) {
+    updateNightAudioButton();
     return;
   }
   const preset = selectedAmbiencePreset();
-  startNightAudio(seconds, preset);
+  if (preset.id === state.nightAudio.preset?.id) {
+    updateNightAudioButton();
+    return;
+  }
+  startNightAudio(preset);
+  setAudioStatus(`Background audio switched to "${preset.name}".`);
 }
 
 function selectedAmbiencePreset() {
@@ -1295,9 +1968,14 @@ function selectedAmbiencePreset() {
   );
 }
 
-function startNightAudio(seconds, preset) {
+function startNightAudio(preset) {
   stopSpeech();
   stopNightAudio();
+
+  if (preset?.audioSrc) {
+    startRecordedNightAudio(preset);
+    return;
+  }
 
   const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextCtor) {
@@ -1307,35 +1985,227 @@ function startNightAudio(seconds, preset) {
 
   const context = new AudioContextCtor();
   const master = context.createGain();
-  master.gain.value = clamp(preset?.gain ?? 0.22, 0.05, 0.6);
+  master.gain.value = clamp((preset?.gain ?? 0.22) * BACKGROUND_AUDIO_VOLUME_RATIO, 0.02, 0.6);
   master.connect(context.destination);
 
   const engineCleanup = startAmbienceEngine(context, master, preset);
-  const stopTimerId = window.setTimeout(() => {
-    stopNightAudio();
-  }, seconds * 1000);
-
-  state.nightAudio = {
-    context,
-    stop() {
-      window.clearTimeout(stopTimerId);
-      try {
-        engineCleanup();
-      } catch (_) {}
-      try {
-        context.close();
-      } catch (_) {}
-    },
+  const audioState = createNightAudioState(preset);
+  audioState.pause = () => {
+    if (audioState.isPaused) return;
+    audioState.elapsedBeforePauseMs = getNightAudioElapsedMs(audioState);
+    audioState.isPaused = true;
+    audioState.startedAt = 0;
+    context.suspend().catch(() => {});
+    updateNightAudioButton();
+    syncNightAudioUI();
+    setAudioStatus(`Background audio "${preset.name}" paused.`);
+  };
+  audioState.resume = () => {
+    if (!audioState.isPaused) return;
+    audioState.isPaused = false;
+    audioState.startedAt = performance.now();
+    context.resume().catch(() => {});
+    updateNightAudioButton();
+    syncNightAudioUI();
+    setAudioStatus(`Background audio "${preset.name}" resumed.`);
+  };
+  audioState.stop = () => {
+    clearNightAudioUi(audioState);
+    try {
+      engineCleanup();
+    } catch (_) {}
+    try {
+      context.close();
+    } catch (_) {}
   };
 
-  setAudioStatus(`Background audio "${preset.name}" running for ${seconds} seconds.`);
+  state.nightAudio = audioState;
+  armNightAudioUi(audioState);
+  updateNightAudioButton();
+  syncNightAudioUI();
+
+  setAudioStatus(`Background audio "${preset.name}" playing continuously.`);
+}
+
+function startRecordedNightAudio(preset) {
+  const audio = new Audio(preset.audioSrc);
+  audio.loop = true;
+  audio.preload = "auto";
+  audio.volume = clamp((preset?.gain ?? 0.55) * BACKGROUND_AUDIO_VOLUME_RATIO, 0.02, 1);
+
+  const audioState = createNightAudioState(preset);
+  audioState.audioElement = audio;
+  let isStopped = false;
+
+  audioState.pause = () => {
+    if (audioState.isPaused || isStopped) return;
+    audioState.elapsedBeforePauseMs = getNightAudioElapsedMs(audioState);
+    audioState.isPaused = true;
+    audioState.startedAt = 0;
+    try {
+      audio.pause();
+    } catch (_) {}
+    updateNightAudioButton();
+    syncNightAudioUI();
+    setAudioStatus(`Background audio "${preset.name}" paused.`);
+  };
+  audioState.resume = () => {
+    if (!audioState.isPaused || isStopped) return;
+    audioState.isPaused = false;
+    audioState.startedAt = performance.now();
+    const playResult = audio.play();
+    if (playResult && typeof playResult.catch === "function") {
+      playResult.catch(handlePlaybackError);
+    }
+    updateNightAudioButton();
+    syncNightAudioUI();
+    setAudioStatus(`Background audio "${preset.name}" resumed.`);
+  };
+  audioState.stop = () => {
+    if (isStopped) return;
+    isStopped = true;
+    clearNightAudioUi(audioState);
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.removeAttribute("src");
+      audio.load();
+    } catch (_) {}
+  };
+
+  state.nightAudio = audioState;
+  armNightAudioUi(audioState);
+  updateNightAudioButton();
+  syncNightAudioUI();
+
+  const handlePlaybackError = () => {
+    if (state.nightAudio !== audioState) return;
+    audioState.stop();
+    state.nightAudio = null;
+    updateNightAudioButton();
+    syncNightAudioUI();
+    setAudioStatus(`Unable to play background audio "${preset.name}".`, true);
+  };
+
+  audio.addEventListener("error", handlePlaybackError, { once: true });
+
+  const playResult = audio.play();
+  if (playResult && typeof playResult.then === "function") {
+    playResult
+      .then(() => {
+        if (state.nightAudio !== audioState) return;
+        setAudioStatus(`Background audio "${preset.name}" playing continuously.`);
+      })
+      .catch(handlePlaybackError);
+    return;
+  }
+
+  setAudioStatus(`Background audio "${preset.name}" playing continuously.`);
 }
 
 function stopNightAudio() {
   if (!state.nightAudio) return;
   state.nightAudio.stop();
   state.nightAudio = null;
+  updateNightAudioButton();
+  syncNightAudioUI();
   setAudioStatus("Background audio stopped.");
+}
+
+function createNightAudioState(preset) {
+  return {
+    preset,
+    startedAt: performance.now(),
+    timerId: 0,
+    uiTimerId: 0,
+    elapsedBeforePauseMs: 0,
+    audioElement: null,
+    isPaused: false,
+    pause() {},
+    resume() {},
+    stop() {},
+  };
+}
+
+function getNightAudioElapsedMs(audioState) {
+  if (!audioState) return 0;
+  const mediaDuration = Number(audioState.audioElement?.duration);
+  const mediaCurrentTime = Number(audioState.audioElement?.currentTime);
+  if (Number.isFinite(mediaDuration) && mediaDuration > 0 && Number.isFinite(mediaCurrentTime)) {
+    return clamp(mediaCurrentTime * 1000, 0, mediaDuration * 1000);
+  }
+  if (audioState.isPaused || !audioState.startedAt) {
+    return Math.max(0, audioState.elapsedBeforePauseMs || 0);
+  }
+  return Math.max(0, (audioState.elapsedBeforePauseMs || 0) + (performance.now() - audioState.startedAt));
+}
+
+function clearNightAudioUi(audioState) {
+  if (audioState?.uiTimerId) {
+    window.clearInterval(audioState.uiTimerId);
+    audioState.uiTimerId = 0;
+  }
+}
+
+function armNightAudioUi(audioState) {
+  if (!audioState) return;
+  clearNightAudioUi(audioState);
+  syncNightAudioUI();
+  audioState.uiTimerId = window.setInterval(syncNightAudioUI, 160);
+}
+
+function syncNightAudioUI() {
+  const progressInput = dom.backgroundAudioProgress;
+  const progressMeta = dom.backgroundAudioProgressMeta;
+  if (!progressInput || !progressMeta) return;
+
+  let progress = 0;
+  let metaText = "Ready to play.";
+
+  if (state.nightAudio) {
+    const elapsedMs = getNightAudioElapsedMs(state.nightAudio);
+    const mediaDuration = Number(state.nightAudio.audioElement?.duration);
+    if (Number.isFinite(mediaDuration) && mediaDuration > 0) {
+      const totalMs = mediaDuration * 1000;
+      progress = totalMs ? elapsedMs / totalMs : 0;
+      metaText = `${state.nightAudio.isPaused ? "Paused" : "Playing"} ${formatDuration(elapsedMs)} / ${formatDuration(totalMs)} (loops)`;
+    } else {
+      progress = 0;
+      metaText = state.nightAudio.isPaused
+        ? `Paused continuous background audio.`
+        : `Playing continuous background audio.`;
+    }
+  }
+
+  const progressPct = clamp(progress, 0, 1) * 100;
+  progressInput.value = String(Math.round(progressPct * 10));
+  progressInput.style.setProperty("--progress-pct", `${progressPct}%`);
+  progressMeta.textContent = metaText;
+}
+
+function updateNightAudioButton() {
+  if (!dom.startNight || !dom.pauseNight) return;
+
+  const selectedPreset = selectedAmbiencePreset();
+  const isActive = Boolean(state.nightAudio && state.nightAudio.preset?.id === selectedPreset.id && !state.nightAudio.isPaused);
+  const isPaused = Boolean(state.nightAudio && state.nightAudio.preset?.id === selectedPreset.id && state.nightAudio.isPaused);
+
+  dom.startNight.innerHTML = "&#9654; Play Background Audio";
+  dom.startNight.classList.toggle("active", isActive);
+  dom.startNight.setAttribute("aria-pressed", isActive ? "true" : "false");
+
+  if (!state.nightAudio) {
+    dom.pauseNight.disabled = true;
+    dom.pauseNight.innerHTML = "&#9208; Pause";
+    dom.pauseNight.classList.remove("active");
+    dom.pauseNight.setAttribute("aria-pressed", "false");
+    return;
+  }
+
+  dom.pauseNight.disabled = false;
+  dom.pauseNight.innerHTML = state.nightAudio.isPaused ? "&#9654; Resume" : "&#9208; Pause";
+  dom.pauseNight.classList.toggle("active", isPaused);
+  dom.pauseNight.setAttribute("aria-pressed", isPaused ? "true" : "false");
 }
 
 function startAmbienceEngine(context, destination, preset) {
@@ -1414,16 +2284,16 @@ function startAmbienceEngine(context, destination, preset) {
   } else if (engine === "heartbeat") {
     const beatMs = 60000 / clamp(preset.bpm || 60, 30, 160);
     add(
-      addDroneLayer(context, destination, [38], {
-        gain: 0.05,
-        type: "sine",
+      addDroneLayer(context, destination, [42, 84], {
+        gain: 0.08,
+        type: "triangle",
         tremoloHz: 0.05,
       })
     );
     add(
       scheduleFixedEffect(beatMs, () => {
-        spawnHeartbeat(context, destination, 0.15);
-        window.setTimeout(() => spawnHeartbeat(context, destination, 0.1), 130);
+        spawnHeartbeat(context, destination, 0.24);
+        window.setTimeout(() => spawnHeartbeat(context, destination, 0.16), 180);
       })
     );
   } else if (engine === "drone") {
@@ -1466,12 +2336,18 @@ function startAmbienceEngine(context, destination, preset) {
     );
   } else if (engine === "melody") {
     const ms = 60000 / clamp(preset.tempo || 82, 45, 140);
-    const baseScale = preset.dramatic
+    const baseScale = Array.isArray(preset.sequence) && preset.sequence.length
+      ? preset.sequence
+      : preset.dramatic
       ? [174.61, 220, 261.63, 293.66, 329.63, 261.63, 220]
       : [174.61, 196, 220, 196, 174.61, 146.83];
+    const bedFreqs = Array.isArray(preset.bedFreqs) && preset.bedFreqs.length
+      ? preset.bedFreqs
+      : [55, 82];
+    const noteGain = preset.noteGain || (preset.dramatic ? 0.12 : 0.09);
     let index = 0;
     add(
-      addDroneLayer(context, destination, [55, 82], {
+      addDroneLayer(context, destination, bedFreqs, {
         gain: 0.04,
         type: "sine",
         tremoloHz: 0.05,
@@ -1480,7 +2356,7 @@ function startAmbienceEngine(context, destination, preset) {
     add(
       scheduleFixedEffect(ms, () => {
         spawnMelodyNote(context, destination, baseScale[index], {
-          gain: preset.dramatic ? 0.12 : 0.09,
+          gain: noteGain,
         });
         index = (index + 1) % baseScale.length;
       })
@@ -1833,18 +2709,43 @@ function spawnThunderBoom(context, destination, strength) {
 
 function spawnHeartbeat(context, destination, strength) {
   const now = context.currentTime;
-  const osc = context.createOscillator();
-  const gain = context.createGain();
-  osc.type = "triangle";
-  osc.frequency.setValueAtTime(58, now);
-  osc.frequency.exponentialRampToValueAtTime(34, now + 0.12);
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(strength, now + 0.03);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
-  osc.connect(gain);
-  gain.connect(destination);
-  osc.start(now);
-  osc.stop(now + 0.22);
+  const lowOsc = context.createOscillator();
+  const lowGain = context.createGain();
+  const highOsc = context.createOscillator();
+  const highGain = context.createGain();
+  const highFilter = context.createBiquadFilter();
+
+  lowOsc.type = "sine";
+  lowOsc.frequency.setValueAtTime(92, now);
+  lowOsc.frequency.exponentialRampToValueAtTime(46, now + 0.16);
+
+  lowGain.gain.setValueAtTime(0.0001, now);
+  lowGain.gain.exponentialRampToValueAtTime(strength, now + 0.025);
+  lowGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+
+  highOsc.type = "triangle";
+  highOsc.frequency.setValueAtTime(170, now);
+  highOsc.frequency.exponentialRampToValueAtTime(96, now + 0.08);
+
+  highFilter.type = "lowpass";
+  highFilter.frequency.value = 220;
+  highFilter.Q.value = 0.8;
+
+  highGain.gain.setValueAtTime(0.0001, now);
+  highGain.gain.exponentialRampToValueAtTime(strength * 0.55, now + 0.012);
+  highGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+
+  lowOsc.connect(lowGain);
+  lowGain.connect(destination);
+
+  highOsc.connect(highFilter);
+  highFilter.connect(highGain);
+  highGain.connect(destination);
+
+  lowOsc.start(now);
+  highOsc.start(now);
+  lowOsc.stop(now + 0.26);
+  highOsc.stop(now + 0.13);
 }
 
 function spawnPulseTone(context, destination, frequency, strength) {
@@ -2086,11 +2987,24 @@ function updateScriptViews() {
   dom.introScript.value = formatScript(state.scripts.intro);
   dom.dayScript.value = formatScript(state.scripts.day);
   dom.nightScript.value = formatScript(state.scripts.night);
+  syncScriptPlaybackUI();
 }
 
 function formatScript(lines = []) {
   if (!lines.length) return "Generate a game to create script text.";
-  return lines.map((line, index) => `${index + 1}. ${line}`).join("\n");
+  let spokenIndex = 0;
+  return lines
+    .map((line) => {
+      if (line === SCRIPT_PAUSE_MARKER) {
+        return "** PAUSE and wait for user to restart.";
+      }
+      if (line === SCRIPT_PAUSE_2S_MARKER) {
+        return "* PAUSE for 2 seconds.";
+      }
+      spokenIndex += 1;
+      return `${spokenIndex}. ${line}`;
+    })
+    .join("\n");
 }
 
 function naturalList(items) {

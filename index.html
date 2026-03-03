@@ -43,16 +43,12 @@
       </div>
       <div class="field">
         <label for="player-names">Player Names (Optional).<br>If you would like the app to randomly assign roles to players, add player names here. If you want players to physically draw their own role card, leave this blank (you can enter player names later to match the role they drew).</label>
-        <textarea id="player-names" rows="8" placeholder="Alex&#10;Jordan&#10;Sam&#10;(leave blank to auto-create Player 1..N)"></textarea>
+        <textarea id="player-names" rows="8" placeholder="Alex&#10;Beth&#10;Cath&#10;(leave blank to auto-create Player 1..N)"></textarea>
       </div>
       <div class="row">
-        <div class="field compact">
-          <label for="zombie-count">Zombie Leaders</label>
+        <div class="field compact zombie-count-field">
+          <label for="zombie-count" class="nowrap-label">Zombie Leaders (between 1 and 4)</label>
           <input id="zombie-count" type="number" min="1" max="4" value="3">
-        </div>
-        <div class="field compact">
-          <label for="night-duration">Background Audio (seconds)</label>
-          <input id="night-duration" type="number" min="15" max="240" value="60">
         </div>
       </div>
     </section>
@@ -70,7 +66,6 @@
         "Organizational citizen" with no special abilities. Checked roles are available for assignment.
       </p>
       <div id="roles-grid" class="roles-grid"></div>
-      <div id="role-icon-legend" class="icon-legend"></div>
       <div class="actions">
         <button id="generate-game" type="button" class="primary">Generate Game</button>
       </div>
@@ -91,83 +86,142 @@
 
     <section class="section panel" id="audio-panel">
       <h2>4) Audio Director</h2>
-      <div class="row">
-        <label class="switch">
-          <input id="orientation-enabled" type="checkbox" checked>
-          <span>Include orientation (for first-time players)</span>
-        </label>
-      </div>
-      <div class="row audio-controls">
-        <button id="play-orientation" type="button">Play Orientation</button>
-        <button id="play-intro" type="button">Play Introduction</button>
-        <button id="play-day" type="button">Play Day Sequence</button>
-        <button id="play-night-script" type="button">Play Night Sequence</button>
-        <button id="stop-speech" type="button" class="ghost">Stop Voice</button>
-      </div>
-      <div class="row">
-        <div class="field compact">
-          <label for="voice-rate">Voice Speed</label>
-          <input id="voice-rate" type="range" min="0.6" max="1.8" step="0.1" value="1">
-          <p id="voice-rate-value" class="control-value">1.00x</p>
-        </div>
-        <div class="field compact">
-          <label for="voice-pitch">Voice Pitch</label>
-          <input id="voice-pitch" type="range" min="0.7" max="1.4" step="0.05" value="1">
-          <p id="voice-pitch-value" class="control-value">1.00x</p>
-        </div>
-      </div>
-      <div class="row">
-        <div class="field compact">
-          <label for="voice-mode">Voice List</label>
-          <select id="voice-mode">
-            <option value="recommended" selected>Recommended (stable English)</option>
-            <option value="english">All English voices</option>
-            <option value="all">All voices</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="voice-select">Voice</label>
-          <select id="voice-select"></select>
-        </div>
-        <div class="button-group voice-tools">
-          <button id="test-voice" type="button">Test Voice</button>
-          <button id="reset-voice" type="button" class="ghost">Reset Voice</button>
-        </div>
-      </div>
-      <p class="hint">Voices come from your browser and operating system. Use Recommended for best reliability.</p>
-
       <div class="night-box">
         <h3>Background Audio (Masking / Atmosphere)</h3>
-        <p class="hint">Choose one of 20 gameground sounds. Default is Haunted Wind.</p>
+        <p class="hint">Choose one of 5 background sounds. Default is Mozart - Requiem.</p>
         <div class="row">
           <div class="field">
             <label for="ambience-select">Soundscape</label>
             <select id="ambience-select"></select>
           </div>
         </div>
-        <div class="row audio-controls">
-          <button id="start-night" type="button" class="danger">Start Background Audio</button>
-          <button id="stop-night" type="button" class="ghost">Stop Background Audio</button>
+        <div class="row audio-controls script-actions background-actions">
+          <button id="start-night" type="button" class="danger">&#9654; Play Background Audio</button>
+          <button id="pause-night" type="button" class="ghost">&#9208; Pause</button>
+        </div>
+        <input
+          id="background-audio-progress"
+          class="script-progress background-progress"
+          type="range"
+          min="0"
+          max="1000"
+          value="0"
+          step="1"
+          aria-label="Background audio progress"
+        >
+        <p id="background-audio-progress-meta" class="script-progress-meta">Ready to play.</p>
+      </div>
+
+      <div class="row">
+        <div class="field compact">
+          <label for="voice-rate">Voice Speed</label>
+          <input id="voice-rate" type="range" min="0.6" max="1.8" step="0.1" value="1">
+          <p id="voice-rate-value" class="control-value">1.00x</p>
         </div>
       </div>
+      <div class="row">
+        <div class="field">
+          <label>Voices</label>
+          <div id="voice-choices" class="voice-choices" role="group" aria-label="Available voices"></div>
+        </div>
+        <div class="button-group voice-tools">
+          <button id="test-voice" type="button">Test Voice</button>
+        </div>
+      </div>
+      <p class="hint">Voice choices are limited to Daniel, Samantha, and Moira, using the voices available on this device.</p>
 
       <p id="audio-status" class="status" aria-live="polite"></p>
 
+      <div class="row">
+        <label class="switch">
+          <input id="orientation-enabled" type="checkbox" checked>
+          <span>Include Orientation (for first-time players)</span>
+        </label>
+      </div>
+
       <div class="script-grid">
-        <div class="script-box">
-          <h3>Orientation Script</h3>
+        <div class="script-box" data-script-panel="orientation">
+          <div class="script-box-head">
+            <h3>Orientation Script</h3>
+            <div class="button-group script-actions">
+              <button type="button" data-script-action="play" data-script="orientation">&#9654; Play</button>
+              <button type="button" data-script-action="pause" data-script="orientation" class="ghost">&#9208; Pause</button>
+            </div>
+          </div>
+          <input
+            class="script-progress"
+            data-script-progress-input
+            type="range"
+            min="0"
+            max="1000"
+            value="0"
+            step="1"
+            aria-label="Orientation script progress"
+          >
+          <p class="script-progress-meta" data-script-progress-meta>Ready to play.</p>
           <textarea id="orientation-script" rows="8" readonly></textarea>
         </div>
-        <div class="script-box">
-          <h3>Introduction Script</h3>
+        <div class="script-box" data-script-panel="intro">
+          <div class="script-box-head">
+            <h3>Introduction Script</h3>
+            <div class="button-group script-actions">
+              <button type="button" data-script-action="play" data-script="intro">&#9654; Play</button>
+              <button type="button" data-script-action="pause" data-script="intro" class="ghost">&#9208; Pause</button>
+            </div>
+          </div>
+          <input
+            class="script-progress"
+            data-script-progress-input
+            type="range"
+            min="0"
+            max="1000"
+            value="0"
+            step="1"
+            aria-label="Introduction script progress"
+          >
+          <p class="script-progress-meta" data-script-progress-meta>Ready to play.</p>
           <textarea id="intro-script" rows="8" readonly></textarea>
         </div>
-        <div class="script-box">
-          <h3>Day Sequence Script</h3>
+        <div class="script-box" data-script-panel="day">
+          <div class="script-box-head">
+            <h3>Day Sequence Script</h3>
+            <div class="button-group script-actions">
+              <button type="button" data-script-action="play" data-script="day">&#9654; Play</button>
+              <button type="button" data-script-action="pause" data-script="day" class="ghost">&#9208; Pause</button>
+            </div>
+          </div>
+          <input
+            class="script-progress"
+            data-script-progress-input
+            type="range"
+            min="0"
+            max="1000"
+            value="0"
+            step="1"
+            aria-label="Day sequence script progress"
+          >
+          <p class="script-progress-meta" data-script-progress-meta>Ready to play.</p>
           <textarea id="day-script" rows="8" readonly></textarea>
         </div>
-        <div class="script-box">
-          <h3>Night Sequence Script</h3>
+        <div class="script-box" data-script-panel="night">
+          <div class="script-box-head">
+            <h3>Night Sequence Script</h3>
+            <div class="button-group script-actions">
+              <button type="button" data-script-action="play" data-script="night">&#9654; Play</button>
+              <button type="button" data-script-action="pause" data-script="night" class="ghost">&#9208; Pause</button>
+            </div>
+          </div>
+          <input
+            class="script-progress"
+            data-script-progress-input
+            type="range"
+            min="0"
+            max="1000"
+            value="0"
+            step="1"
+            aria-label="Night sequence script progress"
+          >
+          <p class="script-progress-meta" data-script-progress-meta>Ready to play.</p>
           <textarea id="night-script" rows="8" readonly></textarea>
         </div>
       </div>
