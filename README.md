@@ -38,3 +38,12 @@ Local browser app to run the Zombie Leaders game flow:
 - The night sequence audio is synthesized in-browser (Web Audio API), so no external files are required.
 - Speech playback uses browser support for `speechSynthesis` and installed voices.
 - Local JS check command (portable Node installed in workspace): `./.tools/node/bin/node --check app.js`
+
+## Copyright and License
+
+- Copyright (c) 2026 Nik Steffens and Alex Haslam. All rights reserved.
+- This repository is not released under a standard open-source license.
+- See `/Users/uqnsteff/Library/CloudStorage/OneDrive-TheUniversityofQueensland/01_UQ/02_Studies & Projects/11_Alex Zombie Leadership/01_Instructions/LICENSE.md` for the full rights notice.
+- In practical terms:
+  - you may view the repository and run the app for private, educational, research, or internal facilitation use
+  - you may not reproduce, redistribute, modify, publish, commercialize, or create derivative works from the code or game materials without permission

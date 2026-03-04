@@ -159,6 +159,32 @@ h3 {
   color: var(--text-dim);
 }
 
+.site-footer {
+  margin: 1.25rem 0 0;
+  padding: 0.9rem 0.3rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-dim);
+  font-size: 0.84rem;
+}
+
+.footer-logos {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.8rem;
+  overflow-x: auto;
+}
+
+.footer-logo-image {
+  display: block;
+  width: 739px;
+  height: 221px;
+  flex: 0 0 auto;
+}
+
+.site-footer p {
+  margin: 0.12rem 0;
+}
+
 .section-head {
   display: flex;
   align-items: center;

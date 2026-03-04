@@ -18,22 +18,28 @@ const SCRIPT_LABELS = Object.freeze({
   day: "Day Sequence",
   night: "Night Sequence",
 });
-const FEATURED_VOICE_OPTIONS = Object.freeze([
+const VOICE_OPTIONS = Object.freeze([
   {
     id: "daniel",
     name: "Daniel",
+    kind: "local",
+    sourceLabel: "Device voice",
     matcher: /\bdaniel\b/i,
     image: "01_thumbnail icons/Departmental Administrator M30.png",
   },
   {
     id: "samantha",
     name: "Samantha",
+    kind: "local",
+    sourceLabel: "Device voice",
     matcher: /\bsamantha\b/i,
     image: "01_thumbnail icons/Departmental Administrator F30.png",
   },
   {
     id: "moira",
     name: "Moira",
+    kind: "local",
+    sourceLabel: "Device voice",
     matcher: /\bmoira\b/i,
     image: "01_thumbnail icons/Departmental Administrator F60.png",
   },
@@ -66,7 +72,7 @@ const AMBIENT_PRESETS = [
     rainTone: 2200,
   },
   { id: "warning-pulse", name: "Warning Pulse", engine: "pulse", bpm: 62, gain: 0.24 },
-  { id: "amplified-heartbeat", name: "Amplified Heartbeat", engine: "heartbeat", bpm: 70, gain: 0.46 },
+  { id: "amplified-heartbeat", name: "Beating Heart", engine: "heartbeat", bpm: 70, gain: 0.46 },
 ];
 
 const BASE_CITIZEN_ROLE = {
@@ -1265,11 +1271,16 @@ function revealAllCards() {
 
 function populateVoiceList() {
   if (!window.speechSynthesis) {
-    if (dom.voiceChoices) {
-      dom.voiceChoices.innerHTML = `<div class="voice-empty">Speech not supported</div>`;
+    state.voices = [];
+    state.voiceMap = new Map();
+    if (!isVoiceOptionAvailable(selectedVoiceOption())) {
+      const firstAvailable = VOICE_OPTIONS.find((option) => isVoiceOptionAvailable(option));
+      if (firstAvailable) {
+        state.selectedVoiceId = firstAvailable.id;
+      }
     }
-    dom.testVoice.disabled = true;
-    setScriptPlaybackControlsDisabled(true);
+    renderVoiceChoices();
+    syncScriptPlaybackUI();
     return;
   }
 
@@ -1277,33 +1288,56 @@ function populateVoiceList() {
   state.voices = allVoices;
 
   if (!allVoices.length) {
-    if (dom.voiceChoices) {
-      dom.voiceChoices.innerHTML = `<div class="voice-empty">Loading voices...</div>`;
-    }
+    state.voiceMap = new Map();
+    renderVoiceChoices();
+    syncScriptPlaybackUI();
     return;
   }
 
   state.voiceMap = new Map();
-  FEATURED_VOICE_OPTIONS.forEach((option) => {
-    const matches = allVoices.filter((voice) => option.matcher.test(voice.name || ""));
-    const bestMatch = matches.length ? sortVoicesByQuality(matches)[0] : null;
+  VOICE_OPTIONS.filter((option) => option.kind === "local").forEach((option) => {
+    const bestMatch = findVoiceForOption(option, allVoices);
     if (bestMatch) {
       state.voiceMap.set(option.id, bestMatch);
     }
   });
 
-  if (!state.voiceMap.has(state.selectedVoiceId)) {
-    const firstAvailable = FEATURED_VOICE_OPTIONS.find((option) => state.voiceMap.has(option.id));
-    state.selectedVoiceId = firstAvailable ? firstAvailable.id : FEATURED_VOICE_OPTIONS[0].id;
+  if (!isVoiceOptionAvailable(selectedVoiceOption())) {
+    const firstAvailable = VOICE_OPTIONS.find((option) => isVoiceOptionAvailable(option));
+    state.selectedVoiceId = firstAvailable ? firstAvailable.id : VOICE_OPTIONS[0].id;
   }
 
   renderVoiceChoices();
-  setScriptPlaybackControlsDisabled(false);
   syncScriptPlaybackUI();
 }
 
-function selectedVoice() {
-  return state.voiceMap.get(state.selectedVoiceId) || null;
+function selectedVoiceOption() {
+  return VOICE_OPTIONS.find((option) => option.id === state.selectedVoiceId) || VOICE_OPTIONS[0];
+}
+
+function selectedLocalVoice() {
+  const option = selectedVoiceOption();
+  if (option.kind !== "local") return null;
+  return state.voiceMap.get(option.id) || null;
+}
+
+function findVoiceForOption(option, voices) {
+  const exactMatches = voices.filter((voice) => option.matcher.test(voice.name || ""));
+  if (exactMatches.length) {
+    return sortVoicesByQuality(exactMatches)[0];
+  }
+
+  const fallbackMatches = voices.filter((voice) => {
+    const name = voice.name || "";
+    const lang = normalizeLang(voice.lang);
+    return Boolean(option.fallbackMatcher?.test(name) && option.langMatcher?.test(lang));
+  });
+
+  if (fallbackMatches.length) {
+    return sortVoicesByQuality(fallbackMatches)[0];
+  }
+
+  return null;
 }
 
 function sortVoicesByQuality(voices) {
@@ -1329,13 +1363,14 @@ function pickBestVoice(voices) {
 
 function renderVoiceChoices() {
   if (!dom.voiceChoices) return;
-  dom.voiceChoices.innerHTML = FEATURED_VOICE_OPTIONS.map((option) => {
-    const voice = state.voiceMap.get(option.id);
-    const isActive = option.id === state.selectedVoiceId && Boolean(voice);
+  dom.voiceChoices.innerHTML = VOICE_OPTIONS.map((option) => {
+    const isAvailable = isVoiceOptionAvailable(option);
+    const isActive = option.id === state.selectedVoiceId && isAvailable;
+    const meta = getVoiceOptionMeta(option);
     return `
       <button
         type="button"
-        class="voice-choice${isActive ? " active" : ""}${voice ? "" : " unavailable"}"
+        class="voice-choice${isActive ? " active" : ""}${isAvailable ? "" : " unavailable"}"
         data-action="select-voice"
         data-voice-id="${option.id}"
         aria-pressed="${isActive ? "true" : "false"}"
@@ -1344,8 +1379,8 @@ function renderVoiceChoices() {
           <img class="voice-choice-image" src="${escapeHtml(encodeURI(option.image))}" alt="">
         </span>
         <span class="voice-choice-copy">
-          <span class="voice-choice-name">${option.name}</span>
-          ${voice ? "" : '<span class="voice-choice-meta">Unavailable on this device</span>'}
+          <span class="voice-choice-name">${escapeHtml(option.name)}</span>
+          <span class="voice-choice-meta">${escapeHtml(meta)}</span>
         </span>
       </button>
     `;
@@ -1354,15 +1389,42 @@ function renderVoiceChoices() {
   dom.voiceChoices.querySelectorAll('[data-action="select-voice"]').forEach((button) => {
     button.addEventListener("click", () => {
       const voiceId = button.dataset.voiceId;
-      if (!state.voiceMap.has(voiceId)) {
-        setAudioStatus(`Voice ${capitalize(voiceId)} is not available on this device.`, true);
+      const option = VOICE_OPTIONS.find((entry) => entry.id === voiceId);
+      if (!option) return;
+      if (!isVoiceOptionAvailable(option)) {
+        setAudioStatus(`${option.name} is not ready yet. ${getVoiceUnavailableReason(option)}`, true);
         return;
       }
       state.selectedVoiceId = voiceId;
       renderVoiceChoices();
-      setAudioStatus(`${capitalize(voiceId)} selected.`);
+      syncScriptPlaybackUI();
+      setAudioStatus(`${option.name} selected.`);
     });
   });
+
+  if (dom.testVoice) {
+    dom.testVoice.disabled = !isSelectedVoiceAvailable();
+  }
+}
+
+function isVoiceOptionAvailable(option) {
+  return Boolean(option && state.voiceMap.has(option.id));
+}
+
+function isSelectedVoiceAvailable() {
+  return isVoiceOptionAvailable(selectedVoiceOption());
+}
+
+function getVoiceOptionMeta(option) {
+  if (!option) return "";
+  const voice = state.voiceMap.get(option.id);
+  if (!voice) return "Unavailable on this device";
+  return `${voice.lang || "en"}`;
+}
+
+function getVoiceUnavailableReason(option) {
+  if (!option) return "Select a voice first.";
+  return "That voice is not available on this computer.";
 }
 
 function getVoiceKey(voice) {
@@ -1414,11 +1476,20 @@ function playScript(type) {
 }
 
 function speakLines(lines, options = {}) {
+  const voiceOption = selectedVoiceOption();
+  if (!isVoiceOptionAvailable(voiceOption)) {
+    setAudioStatus(`${voiceOption.name} is not ready yet. ${getVoiceUnavailableReason(voiceOption)}`, true);
+    return;
+  }
+
   if (!window.speechSynthesis) {
     setAudioStatus("Speech synthesis is not supported in this browser.", true);
     return;
   }
+  speakLinesWithLocalVoice(lines, options, voiceOption);
+}
 
+function speakLinesWithLocalVoice(lines, options = {}, voiceOption) {
   stopSpeech();
   const {
     label = "Voice",
@@ -1428,8 +1499,8 @@ function speakLines(lines, options = {}) {
     startSegmentIndex = 0,
   } = options;
   const sessionId = state.speechSessionId;
-  let chosenVoice = selectedVoice();
-  let chosenVoiceId = state.selectedVoiceId;
+  let chosenVoice = selectedLocalVoice();
+  let chosenVoiceId = voiceOption.id;
   const rate = Number(dom.voiceRate.value);
   const segmentsToSpeak = fullSegments.slice(startSegmentIndex);
   let currentSegment = 0;
@@ -1485,9 +1556,7 @@ function speakLines(lines, options = {}) {
       markScriptPlaybackLineStart(sessionId, fullSegmentIndex);
       const spokenTotal = countSpokenLines(fullLines);
       const spokenCurrent = spokenLineNumberAt(fullLines, currentSegmentData.sourceLineIndex);
-      setAudioStatus(
-        `${label}: line ${spokenCurrent} of ${spokenTotal}`
-      );
+      setAudioStatus(`${label}: line ${spokenCurrent} of ${spokenTotal}`);
     };
     utterance.onpause = () => {
       if (!isCurrentSession()) return;
@@ -1506,8 +1575,8 @@ function speakLines(lines, options = {}) {
       }
 
       if (chosenVoice && !useFallbackVoice) {
-        const fallbackOption = FEATURED_VOICE_OPTIONS.find(
-          (option) => option.id !== chosenVoiceId && state.voiceMap.has(option.id)
+        const fallbackOption = VOICE_OPTIONS.find(
+          (option) => option.kind === "local" && option.id !== chosenVoiceId && state.voiceMap.has(option.id)
         );
         if (fallbackOption) {
           useFallbackVoice = true;
@@ -1524,10 +1593,7 @@ function speakLines(lines, options = {}) {
         }
 
         finishScriptPlayback(sessionId, false);
-        setAudioStatus(
-          `Selected voice failed (${errorName}).`,
-          true
-        );
+        setAudioStatus(`Selected voice failed (${errorName}).`, true);
         return;
       }
       finishScriptPlayback(sessionId, false);
@@ -1649,15 +1715,18 @@ function beginScriptScrub(type, event) {
   const initialValue = Number(panelDom.progressInput.value || 0);
 
   const hasQueuedSpeech = Boolean(
-    window.speechSynthesis.speaking ||
-    window.speechSynthesis.pending ||
-    window.speechSynthesis.paused
+    window.speechSynthesis?.speaking ||
+    window.speechSynthesis?.pending ||
+    window.speechSynthesis?.paused
   );
   const currentlyActive = state.scriptPlayback?.type === type;
   const currentlyAwaitingRestart = state.scriptPendingResume?.type === type;
   const shouldResumeOnRelease =
     currentlyActive && !currentlyAwaitingRestart && !state.scriptPlayback?.isPaused &&
-    Boolean(window.speechSynthesis.speaking || window.speechSynthesis.pending);
+    Boolean(
+      window.speechSynthesis?.speaking ||
+      window.speechSynthesis?.pending
+    );
 
   if (hasQueuedSpeech) {
     stopSpeech();
@@ -1843,7 +1912,7 @@ function syncScriptPlaybackUI() {
     const panelDom = dom.scriptPanels[type];
     if (!panelDom?.panel) return;
 
-    const hasSpeechSupport = Boolean(window.speechSynthesis);
+    const hasSpeechSupport = isSelectedVoiceAvailable();
     const hasScript = Boolean(state.scripts[type]?.length);
     const orientationDisabled = type === "orientation" && !dom.orientationEnabled.checked;
     const isActive = activePlayback?.type === type;
