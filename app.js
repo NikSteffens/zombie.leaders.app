@@ -8,7 +8,7 @@ const ACCESS_CODE = "runaway";
 const ACCESS_SESSION_KEY = "zombie-leaders-unlocked";
 const DEFAULT_AMBIENCE_ID = "mozart-requiem";
 const SCRIPT_VOICE_VOLUME = 1;
-const BACKGROUND_AUDIO_VOLUME_RATIO = 0.5;
+const DEFAULT_BACKGROUND_AUDIO_VOLUME_RATIO = 0.5;
 const SCRIPT_PAUSE_MARKER = "__SCRIPT_PAUSE__";
 const SCRIPT_PAUSE_2S_MARKER = "__SCRIPT_PAUSE_2S__";
 const SCRIPT_TYPES = ["orientation", "intro", "day", "night"];
@@ -55,7 +55,7 @@ const AMBIENT_PRESETS = [
   },
   {
     id: "graveyard-drizzle",
-    name: "Graveyard Drizzle (Default)",
+    name: "Graveyard Drizzle",
     engine: "rain",
     gain: 0.18,
     thunder: 0.08,
@@ -290,6 +290,7 @@ const dom = {
   playerCount: document.getElementById("player-count"),
   playerNames: document.getElementById("player-names"),
   zombieCount: document.getElementById("zombie-count"),
+  zombieCountIcons: document.getElementById("zombie-count-icons"),
   rolesGrid: document.getElementById("roles-grid"),
   roleIconLegend: document.getElementById("role-icon-legend"),
   selectAllRoles: document.getElementById("select-all-roles"),
@@ -304,6 +305,8 @@ const dom = {
   startNight: document.getElementById("start-night"),
   pauseNight: document.getElementById("pause-night"),
   ambienceSelect: document.getElementById("ambience-select"),
+  backgroundVolume: document.getElementById("background-volume"),
+  backgroundVolumeValue: document.getElementById("background-volume-value"),
   backgroundAudioProgress: document.getElementById("background-audio-progress"),
   backgroundAudioProgressMeta: document.getElementById("background-audio-progress-meta"),
   voiceRate: document.getElementById("voice-rate"),
@@ -325,6 +328,8 @@ const state = {
   voices: [],
   voiceMap: new Map(),
   selectedVoiceId: "daniel",
+  zombieLeaderSelection: Array.from({ length: MAX_ZOMBIES }, (_, index) => index < 3),
+  backgroundVolumeRatio: DEFAULT_BACKGROUND_AUDIO_VOLUME_RATIO,
   nightAudio: null,
   speechSessionId: 0,
   unionRepCount: MIN_UNION_REPS,
@@ -335,18 +340,20 @@ const state = {
 };
 
 function init() {
+  renderZombieCountIcons();
   renderRolePicker();
   renderAmbienceOptions();
   bindEvents();
   updateNightAudioButton();
   syncNightAudioUI();
+  updateBackgroundVolumeReadout();
   updateVoiceControlReadouts();
   populateVoiceList();
   state.scripts = buildFallbackScripts();
   updateScriptViews();
   syncScriptPlaybackUI();
   setupAccessGate();
-  setSetupStatus("Add players and click Generate Game.");
+  setSetupStatus("After you have selected the roles you want to include, click here to generate game instructions in the Audio Director below.");
 }
 
 function bindEvents() {
@@ -360,6 +367,8 @@ function bindEvents() {
   dom.startNight.addEventListener("click", handlePlayNightAudio);
   dom.pauseNight.addEventListener("click", toggleNightAudioPause);
   dom.ambienceSelect.addEventListener("change", handleAmbienceChange);
+  dom.backgroundVolume.addEventListener("input", handleBackgroundVolumeInput);
+  dom.zombieCount.addEventListener("input", handleZombieCountInput);
   dom.orientationEnabled.addEventListener("change", handleOrientationToggle);
   dom.voiceRate.addEventListener("input", updateVoiceControlReadouts);
   dom.testVoice.addEventListener("click", handleTestVoice);
@@ -368,6 +377,87 @@ function bindEvents() {
     stopSpeech();
     stopNightAudio();
   });
+}
+
+function renderZombieCountIcons() {
+  if (!dom.zombieCountIcons) return;
+  dom.zombieCountIcons.innerHTML = Array.from({ length: MAX_ZOMBIES }, (_, index) => {
+    return `
+      <button
+        type="button"
+        class="zombie-count-icon"
+        data-action="toggle-zombie-count"
+        data-index="${index}"
+        aria-label="Toggle Zombie Leader ${index + 1}"
+      >
+        ${renderRoleThumb("zombie-leader", {
+          team: "zombie",
+          label: `Zombie Leader ${index + 1}`,
+          className: "zombie-count-thumb",
+          variantSeed: index,
+        })}
+      </button>
+    `;
+  }).join("");
+  dom.zombieCountIcons.querySelectorAll('[data-action="toggle-zombie-count"]').forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.index);
+      if (!Number.isInteger(index)) return;
+      toggleZombieLeaderSelection(index);
+      syncZombieCountIcons();
+    });
+  });
+  syncZombieCountIcons();
+}
+
+function handleZombieCountInput() {
+  const nextValue = clamp(Number(dom.zombieCount.value) || 0, 1, MAX_ZOMBIES);
+  dom.zombieCount.value = String(nextValue);
+  syncZombieLeaderSelectionFromCount(nextValue);
+  syncZombieCountIcons();
+}
+
+function syncZombieCountIcons() {
+  if (!dom.zombieCountIcons) return;
+  dom.zombieCountIcons.querySelectorAll('[data-action="toggle-zombie-count"]').forEach((button) => {
+    const index = Number(button.dataset.index);
+    const isActive = Boolean(state.zombieLeaderSelection[index]);
+    button.classList.toggle("active", isActive);
+    button.classList.toggle("inactive", !isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function toggleZombieLeaderSelection(index) {
+  if (!Array.isArray(state.zombieLeaderSelection)) {
+    state.zombieLeaderSelection = Array.from({ length: MAX_ZOMBIES }, (_, slot) => slot < 3);
+  }
+  const nextSelection = [...state.zombieLeaderSelection];
+  const activeCount = nextSelection.filter(Boolean).length;
+  if (nextSelection[index] && activeCount <= 1) return;
+  nextSelection[index] = !nextSelection[index];
+  state.zombieLeaderSelection = nextSelection;
+  dom.zombieCount.value = String(nextSelection.filter(Boolean).length);
+}
+
+function syncZombieLeaderSelectionFromCount(targetCount) {
+  const nextSelection = Array.isArray(state.zombieLeaderSelection)
+    ? [...state.zombieLeaderSelection]
+    : Array.from({ length: MAX_ZOMBIES }, () => false);
+
+  while (nextSelection.filter(Boolean).length < targetCount) {
+    const nextIndex = nextSelection.findIndex((value) => !value);
+    if (nextIndex === -1) break;
+    nextSelection[nextIndex] = true;
+  }
+
+  while (nextSelection.filter(Boolean).length > targetCount) {
+    const nextIndex = nextSelection.lastIndexOf(true);
+    if (nextIndex === -1) break;
+    nextSelection[nextIndex] = false;
+  }
+
+  state.zombieLeaderSelection = nextSelection;
 }
 
 function buildScriptPanelDom() {
@@ -470,15 +560,15 @@ function renderRolePicker() {
     return `
       <div class="role-item">
         <label>
-          <span class="role-check-row">
-            <input type="checkbox" value="${role.id}">
-          </span>
           <span class="role-content-row">
-            ${renderRoleThumb(role.id, { label: role.name, className: "picker-thumb" })}
-            <span class="role-copy">
-              <span class="role-title">${role.name}</span>
-              <span class="role-summary">${role.summary}</span>
+            <span class="role-check-row">
+              <input type="checkbox" value="${role.id}">
             </span>
+            ${renderRoleThumb(role.id, { label: role.name, className: "picker-thumb" })}
+          </span>
+          <span class="role-copy">
+            <span class="role-title">${role.name}</span>
+            <span class="role-summary">${role.summary}</span>
           </span>
         </label>
         ${renderRolePickerExtras(role)}
@@ -494,8 +584,8 @@ function renderRolePickerExtras(role) {
   if (role.id !== "union-rep") return "";
   return `
     <div class="role-extra">
-      <span class="role-extra-label">Union members</span>
-      <div class="count-toggle" data-role-count="union-rep" aria-label="Union member count">
+      <span class="role-extra-label">No. of Union Reps</span>
+      <div class="count-toggle" data-role-count="union-rep" aria-label="Number of Union Reps">
         ${renderCountChoice(MIN_UNION_REPS, state.unionRepCount === MIN_UNION_REPS)}
         ${renderCountChoice(MAX_UNION_REPS, state.unionRepCount === MAX_UNION_REPS)}
       </div>
@@ -1041,8 +1131,13 @@ function renderCards() {
     .map((entry, index) => {
       const visibleName = displayPlayerName(entry, index);
       const cardVariantSeed = hashString(`${visibleName}|${entry.role.id}`);
+      const cardClassNames = [
+        "card",
+        entry.team === "zombie" ? "card-zombie" : "card-citizen",
+        entry.role.id === "sycophant" ? "card-sycophant" : "",
+      ].filter(Boolean).join(" ");
       return `
-        <article class="card" data-index="${index}">
+        <article class="${cardClassNames}" data-index="${index}">
           <div class="card-header">
             <div class="card-header-main">
               ${renderHiddenThumb("card-thumb card-thumb-hidden")}
@@ -1065,15 +1160,8 @@ function renderCards() {
             <span class="badge hidden">Hidden</span>
           </div>
           <div class="card-details">
-            <p><strong>Team:</strong> ${entry.team === "zombie" ? "Zombie Leaders" : "Organizational Citizens"}</p>
             <p class="card-role-line">
               <strong>Role:</strong>
-              ${renderRoleThumb(entry.role.id, {
-                team: entry.team,
-                label: entry.role.name,
-                className: "inline-role-thumb",
-                variantSeed: cardVariantSeed,
-              })}
               <span>${escapeHtml(entry.role.name)}</span>
             </p>
             <p>${escapeHtml(entry.role.summary)}</p>
@@ -1968,6 +2056,30 @@ function selectedAmbiencePreset() {
   );
 }
 
+function updateBackgroundVolumeReadout() {
+  if (!dom.backgroundVolume || !dom.backgroundVolumeValue) return;
+  const ratio = clamp((Number(dom.backgroundVolume.value) || 0) / 100, 0, 1);
+  state.backgroundVolumeRatio = ratio;
+  dom.backgroundVolumeValue.textContent = `${Math.round(ratio * 100)}%`;
+}
+
+function applyBackgroundVolume(audioState) {
+  if (!audioState) return;
+  const baseGain = Number(audioState.baseGain) || 0;
+  const nextVolume = clamp(baseGain * state.backgroundVolumeRatio, 0, 1);
+  if (audioState.masterGain?.gain) {
+    audioState.masterGain.gain.value = clamp(nextVolume, 0, 0.6);
+  }
+  if (audioState.audioElement) {
+    audioState.audioElement.volume = nextVolume;
+  }
+}
+
+function handleBackgroundVolumeInput() {
+  updateBackgroundVolumeReadout();
+  applyBackgroundVolume(state.nightAudio);
+}
+
 function startNightAudio(preset) {
   stopSpeech();
   stopNightAudio();
@@ -1985,11 +2097,13 @@ function startNightAudio(preset) {
 
   const context = new AudioContextCtor();
   const master = context.createGain();
-  master.gain.value = clamp((preset?.gain ?? 0.22) * BACKGROUND_AUDIO_VOLUME_RATIO, 0.02, 0.6);
   master.connect(context.destination);
 
   const engineCleanup = startAmbienceEngine(context, master, preset);
   const audioState = createNightAudioState(preset);
+  audioState.baseGain = preset?.gain ?? 0.22;
+  audioState.masterGain = master;
+  applyBackgroundVolume(audioState);
   audioState.pause = () => {
     if (audioState.isPaused) return;
     audioState.elapsedBeforePauseMs = getNightAudioElapsedMs(audioState);
@@ -2031,10 +2145,11 @@ function startRecordedNightAudio(preset) {
   const audio = new Audio(preset.audioSrc);
   audio.loop = true;
   audio.preload = "auto";
-  audio.volume = clamp((preset?.gain ?? 0.55) * BACKGROUND_AUDIO_VOLUME_RATIO, 0.02, 1);
 
   const audioState = createNightAudioState(preset);
+  audioState.baseGain = preset?.gain ?? 0.55;
   audioState.audioElement = audio;
+  applyBackgroundVolume(audioState);
   let isStopped = false;
 
   audioState.pause = () => {
@@ -2119,6 +2234,8 @@ function createNightAudioState(preset) {
     timerId: 0,
     uiTimerId: 0,
     elapsedBeforePauseMs: 0,
+    baseGain: 0,
+    masterGain: null,
     audioElement: null,
     isPaused: false,
     pause() {},

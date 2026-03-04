@@ -49,6 +49,7 @@
         <div class="field compact zombie-count-field">
           <label for="zombie-count" class="nowrap-label">Zombie Leaders (between 1 and 4)</label>
           <input id="zombie-count" type="number" min="1" max="4" value="3">
+          <div id="zombie-count-icons" class="zombie-count-icons" role="group" aria-label="Zombie Leader count icons"></div>
         </div>
       </div>
     </section>
@@ -63,13 +64,13 @@
       </div>
       <p class="hint">
         By default no special roles are selected. If no special roles are assigned, players receive the role
-        "Organizational citizen" with no special abilities. Checked roles are available for assignment.
+        "Organizational citizen" with no special abilities. Checked roles will be included in the game that is generated.
       </p>
       <div id="roles-grid" class="roles-grid"></div>
       <div class="actions">
         <button id="generate-game" type="button" class="primary">Generate Game</button>
       </div>
-      <p id="setup-status" class="status" aria-live="polite"></p>
+      <p id="setup-status" class="status" aria-live="polite">After you have selected the roles you want to include, click here to generate game instructions in the Audio Director below.</p>
     </section>
 
     <section class="section panel" id="assignments-panel">
@@ -91,8 +92,14 @@
         <p class="hint">Choose one of 5 background sounds. Default is Mozart - Requiem.</p>
         <div class="row">
           <div class="field">
-            <label for="ambience-select">Soundscape</label>
             <select id="ambience-select"></select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field compact">
+            <label for="background-volume">Background Volume</label>
+            <input id="background-volume" type="range" min="0" max="100" step="5" value="50">
+            <p id="background-volume-value" class="control-value">50%</p>
           </div>
         </div>
         <div class="row audio-controls script-actions background-actions">

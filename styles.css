@@ -11,7 +11,7 @@
   --accent-gold: #ffc95c;
   --danger: #ff4f5e;
   --shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
-  --role-thumb-main-size: 1.75rem;
+  --role-thumb-main-size: 2.65rem;
 }
 
 * {
@@ -196,6 +196,40 @@ h3 {
   flex-basis: 280px;
 }
 
+.zombie-count-icons {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+  flex-wrap: wrap;
+}
+
+.zombie-count-icon {
+  padding: 0.18rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  min-width: auto;
+  line-height: 0;
+}
+
+.zombie-count-icon.active {
+  border-color: rgba(255, 95, 61, 0.6);
+  background: rgba(255, 95, 61, 0.14);
+  box-shadow: 0 0 0 2px rgba(255, 95, 61, 0.12);
+}
+
+.zombie-count-icon.inactive {
+  opacity: 0.45;
+  filter: grayscale(1) saturate(0.6);
+}
+
+.zombie-count-thumb {
+  width: var(--role-thumb-main-size);
+  height: var(--role-thumb-main-size);
+  flex-basis: var(--role-thumb-main-size);
+  border-radius: 0.9rem;
+}
+
 label {
   font-size: 0.88rem;
   color: var(--text-dim);
@@ -316,10 +350,10 @@ button.danger {
 }
 
 .voice-choice-thumb {
-  width: 2rem;
-  height: 2rem;
-  flex: 0 0 2rem;
-  border-radius: 0.5rem;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 3rem;
+  border-radius: 0.7rem;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(0, 0, 0, 0.3);
@@ -396,7 +430,6 @@ button.danger {
 }
 
 .role-content-row {
-  width: 100%;
   display: flex;
   align-items: flex-start;
   gap: 0.56rem;
@@ -409,7 +442,7 @@ button.danger {
 
 .role-extra {
   margin-top: 0.45rem;
-  margin-left: calc(var(--role-thumb-main-size) + 0.7rem);
+  margin-left: 0;
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -501,6 +534,13 @@ button.danger {
   flex-basis: var(--role-thumb-main-size);
 }
 
+.role-thumb.zombie-count-thumb {
+  width: var(--role-thumb-main-size);
+  height: var(--role-thumb-main-size);
+  flex-basis: var(--role-thumb-main-size);
+  border-radius: 0.9rem;
+}
+
 .role-thumb-hidden {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.32);
@@ -530,9 +570,9 @@ button.danger {
 }
 
 .icon-chip-thumb {
-  width: 1.12rem;
-  height: 1.12rem;
-  flex-basis: 1.12rem;
+  width: 1.68rem;
+  height: 1.68rem;
+  flex-basis: 1.68rem;
   font-size: 0.72rem;
   border-radius: 999px;
 }
@@ -585,6 +625,16 @@ button.danger {
 .card.revealed {
   border-color: rgba(126, 245, 176, 0.68);
   transform: translateY(-2px);
+}
+
+.card.card-zombie.revealed {
+  border-color: rgba(255, 95, 61, 0.78);
+  box-shadow: 0 0 0 1px rgba(255, 95, 61, 0.18);
+}
+
+.card.card-sycophant.revealed {
+  border-color: rgba(255, 201, 92, 0.82);
+  box-shadow: 0 0 0 1px rgba(255, 201, 92, 0.2);
 }
 
 .card-header {
