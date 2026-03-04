@@ -131,6 +131,15 @@ body:not(.locked) .auth-gate {
   font-weight: 650;
 }
 
+.hero .kicker {
+  color: #c61b2d;
+  font-family: "Creepster", "Copperplate", "Impact", "Haettenschweiler", sans-serif;
+  font-size: 1.15rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 12px rgba(198, 27, 45, 0.26);
+}
+
 h1,
 h2,
 h3 {
@@ -179,6 +188,7 @@ h3 {
   width: 739px;
   height: 221px;
   flex: 0 0 auto;
+  filter: invert(1) grayscale(1) brightness(1.08) contrast(1.08);
 }
 
 .site-footer p {
@@ -216,6 +226,11 @@ h3 {
 
 .field.compact {
   flex: 0 1 220px;
+}
+
+.player-names-field {
+  max-width: none;
+  flex: 1 1 100%;
 }
 
 .zombie-count-field {

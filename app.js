@@ -745,8 +745,11 @@ function getSelectedRoles() {
 }
 
 function parsePlayers(raw) {
-  const names = raw
-    .split(/[\n,]+/)
+  const input = String(raw || "").trim();
+  if (!input) return [];
+
+  const delimiterPattern = /[\n,;]+/;
+  const names = (delimiterPattern.test(input) ? input.split(delimiterPattern) : input.split(/\s+/))
     .map((name) => name.trim())
     .filter(Boolean);
   const seen = new Set();
